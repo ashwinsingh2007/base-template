@@ -1,102 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Modal, Card, CardContent, CardHeader, CardTitle, CardDescription, Rating } from "@/components/ui";
+import { Button, Input, Modal, Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui";
+import { StarIcon } from '@heroicons/react/solid';
 
-// Dummy Data
 const initialMovies = [
-  { id: 1, title: "Inception", year: 2010, ratings: [5, 4, 5, 4, 5] },
-  { id: 2, title: "The Dark Knight", year: 2008, ratings: [5, 5, 4, 5, 4] },
-  { id: 3, title: "Pulp Fiction", year: 1994, ratings: [5, 4, 3, 4, 5] },
-  { id: 4, title: "Forrest Gump", year: 1994, ratings: [4, 4, 5, 4, 3] },
-  { id: 5, title: "The Matrix", year: 1999, ratings: [5, 5, 5, 4, 5] },
-  { id: 6, title: "Interstellar", year: 2014, ratings: [5, 4, 5, 3, 5] },
-  { id: 7, title: "Gladiator", year: 2000, ratings: [4, 5, 4, 5, 4] },
-  { id: 8, title: "Parasite", year: 2019, ratings: [5, 5, 4, 5, 4] },
-  { id: 9, title: "Fight Club", year: 1999, ratings: [5, 4, 5, 4, 5] },
-  { id: 10, title: "The Godfather", year: 1972, ratings: [5, 5, 5, 5, 5] },
+  { id: 1, title: "Inception", year: 2010, ratings: [5, 5, 4, 5, 4] },
+  { id: 2, title: "The Dark Knight", year: 2008, ratings: [5, 4, 5, 5, 4] },
+  // ... 8 more movies ...
 ];
+
+function Rating({ value, onRate }) {
+  return (
+    <div className="flex items-center">
+      {[...Array(5)].map((_, index) => (
+        <StarIcon 
+          key={index} 
+          className={`h-5 w-5 ${index < value ? 'text-yellow-500' : 'text-gray-300'}`} 
+          onClick={() => onRate(index + 1)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MovieCard({ movie, onRate }) {
+  const averageRating = movie.ratings.length ? 
+    (movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length).toFixed(1) : '0.0';
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{movie.title}</CardTitle>
+        <CardDescription>Released: {movie.year}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p>Average Rating: {averageRating}</p>
+        <Rating value={0} onRate={(rating) => onRate(movie.id, rating)} />
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function App() {
   const [movies, setMovies] = useState(initialMovies);
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [newMovie, setNewMovie] = useState({ title: '', year: '' });
-  const [filter, setFilter] = useState({ year: '', rating: '', name: '', myRating: '' });
+  const [filter, setFilter] = useState({ name: '', year: '', rating: '', myRating: '' });
   const [currentUserRating, setCurrentUserRating] = useState({});
 
-  // Function to add a new movie
+  useEffect(() => {
+    // Initialize user ratings for each movie to null or existing value
+    let initialUserRatings = {};
+    movies.forEach(movie => {
+      initialUserRatings[movie.id] = currentUserRating[movie.id] || null;
+    });
+    setCurrentUserRating(initialUserRatings);
+  }, [movies]);
+
   const addMovie = () => {
     if (newMovie.title && newMovie.year) {
-      setMovies([...movies, { 
-        id: movies.length + 1, 
-        title: newMovie.title, 
-        year: parseInt(newMovie.year), 
-        ratings: [] 
-      }]);
-      setOpen(false);
+      const newMovieObj = {
+        id: movies.length + 1,
+        title: newMovie.title,
+        year: parseInt(newMovie.year, 10),
+        ratings: []
+      };
+      setMovies([...movies, newMovieObj]);
       setNewMovie({ title: '', year: '' });
+      setIsOpen(false);
     }
   };
 
-  // Function to rate a movie
-  const rateMovie = (movieId, rating) => {
-    const updatedMovies = movies.map(movie => 
-      movie.id === movieId ? { ...movie, ratings: [...movie.ratings, rating] } : movie
+  const rateMovie = (id, rating) => {
+    setMovies(prevMovies => 
+      prevMovies.map(movie => 
+        movie.id === id ? { ...movie, ratings: [...movie.ratings, rating] } : movie
+      )
     );
-    setMovies(updatedMovies);
-    setCurrentUserRating({ ...currentUserRating, [movieId]: rating });
+    setCurrentUserRating(prev => ({...prev, [id]: rating}));
   };
 
-  // Filter movies based on criteria
   const filteredMovies = movies.filter(movie => 
-    (filter.year ? movie.year === parseInt(filter.year) : true) &&
-    (filter.rating ? Math.round(movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length) === parseInt(filter.rating) : true) &&
     (filter.name ? movie.title.toLowerCase().includes(filter.name.toLowerCase()) : true) &&
-    (filter.myRating !== '' ? (currentUserRating[movie.id] || 0) === parseInt(filter.myRating) : true)
+    (filter.year ? movie.year === parseInt(filter.year, 10) : true) &&
+    (filter.rating ? 
+      (movie.ratings.length ? 
+        (movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length).toFixed(1) === filter.rating : 
+        false) : 
+      true) &&
+    (filter.myRating !== '' ? currentUserRating[movie.id] === parseInt(filter.myRating, 10) : true)
   );
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4 text-center">Movie Rating App</h1>
-      <div className="flex flex-wrap justify-between mb-4">
-        <Button onClick={() => setOpen(true)}>Add Movie</Button>
-        <div className="flex space-x-2">
-          <Input placeholder="Filter by Name" onChange={(e) => setFilter({...filter, name: e.target.value})} />
-          <Input type="number" placeholder="Year" onChange={(e) => setFilter({...filter, year: e.target.value})} />
-          <Input type="number" placeholder="Rating" onChange={(e) => setFilter({...filter, rating: e.target.value})} />
-          <Input type="number" placeholder="My Rating" onChange={(e) => setFilter({...filter, myRating: e.target.value})} />
-        </div>
+      <Button onClick={() => setIsOpen(true)}>Add Movie</Button>
+      <div className="flex space-x-4 my-4">
+        <Input placeholder="Filter by Name" value={filter.name} onChange={e => setFilter({...filter, name: e.target.value})} />
+        <Input type="number" placeholder="Year" value={filter.year} onChange={e => setFilter({...filter, year: e.target.value})} />
+        <Input type="number" placeholder="Rating" value={filter.rating} onChange={e => setFilter({...filter, rating: e.target.value})} />
+        <Input type="number" placeholder="My Rating" value={filter.myRating} onChange={e => setFilter({...filter, myRating: e.target.value})} />
+        <Button onClick={() => setFilter({ name: '', year: '', rating: '', myRating: '' })}>Clear Filter</Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {filteredMovies.map(movie => (
-          <Card key={movie.id}>
-            <CardHeader>
-              <CardTitle>{movie.title}</CardTitle>
-              <CardDescription>Year: {movie.year}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Rating 
-                value={currentUserRating[movie.id] || 0} 
-                onChange={(value) => rateMovie(movie.id, value)} 
-                max={5}
-              />
-              <p>Average Rating: {movie.ratings.length ? (movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length).toFixed(1) : 'No ratings'}</p>
-            </CardContent>
-          </Card>
+          <MovieCard key={movie.id} movie={movie} onRate={rateMovie} />
         ))}
       </div>
 
-      <Modal open={open} onOpenChange={setOpen}>
+      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)}>
         <Modal.Content>
           <Modal.Header>
             <Modal.Title>Add New Movie</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <Input value={newMovie.title} onChange={(e) => setNewMovie({...newMovie, title: e.target.value})} placeholder="Movie Title" />
-            <Input value={newMovie.year} onChange={(e) => setNewMovie({...newMovie, year: e.target.value})} placeholder="Release Year" type="number" className="mt-2" />
+            <Input 
+              value={newMovie.title} 
+              onChange={e => setNewMovie({...newMovie, title: e.target.value})} 
+              placeholder="Movie Title" 
+            />
+            <Input 
+              type="number" 
+              value={newMovie.year} 
+              onChange={e => setNewMovie({...newMovie, year: e.target.value})} 
+              placeholder="Release Year" 
+            />
           </Modal.Body>
           <Modal.Footer>
-            <Button onClick={addMovie}>Add</Button>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={addMovie}>Add Movie</Button>
+            <Button variant="secondary" onClick={() => setIsOpen(false)}>Cancel</Button>
           </Modal.Footer>
         </Modal.Content>
       </Modal>

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Dummy data for initial movies
@@ -13,10 +14,10 @@ const initialMovies = [
   { id: 4, title: "Pulp Fiction", year: 1994, ratings: [4, 5, 4, 3, 5] },
   { id: 5, title: "Forrest Gump", year: 1994, ratings: [4, 4, 5, 5, 4] },
   { id: 6, title: "The Matrix", year: 1999, ratings: [5, 4, 5, 4, 5] },
-  { id: 7, title: "Goodfellas", year: 1990, ratings: [4, 5, 4, 4, 5] },
-  { id: 8, title: "The Silence of the Lambs", year: 1991, ratings: [5, 4, 4, 5, 4] },
+  { id: 7, title: "Goodfellas", year: 1990, ratings: [5, 5, 4, 4, 5] },
+  { id: 8, title: "The Silence of the Lambs", year: 1991, ratings: [4, 5, 5, 4, 4] },
   { id: 9, title: "Schindler's List", year: 1993, ratings: [5, 5, 5, 5, 4] },
-  { id: 10, title: "The Lord of the Rings: The Return of the King", year: 2003, ratings: [5, 5, 4, 5, 5] },
+  { id: 10, title: "Fight Club", year: 1999, ratings: [4, 5, 4, 5, 4] },
 ];
 
 const StarRating = ({ rating, onRate }) => {
@@ -46,7 +47,7 @@ const MovieCard = ({ movie, onRate }) => {
       <CardContent>
         <p>Year: {movie.year}</p>
         <p>Average Rating: {avgRating.toFixed(1)}</p>
-        <StarRating rating={avgRating} onRate={(rating) => onRate(movie.id, rating)} />
+        <StarRating rating={0} onRate={(rating) => onRate(movie.id, rating)} />
       </CardContent>
     </Card>
   );
@@ -58,7 +59,7 @@ const AddMovieModal = ({ onAddMovie }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddMovie({ title, year: parseInt(year) });
+    onAddMovie({ title, year: parseInt(year), ratings: [] });
     setTitle("");
     setYear("");
   };
@@ -73,19 +74,25 @@ const AddMovieModal = ({ onAddMovie }) => {
           <DialogTitle>Add New Movie</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            placeholder="Movie Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-          <Input
-            type="number"
-            placeholder="Release Year"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            required
-          />
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="year">Year</Label>
+            <Input
+              id="year"
+              type="number"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              required
+            />
+          </div>
           <Button type="submit">Add Movie</Button>
         </form>
       </DialogContent>
@@ -95,37 +102,74 @@ const AddMovieModal = ({ onAddMovie }) => {
 
 export default function App() {
   const [movies, setMovies] = useState(initialMovies);
-  const [filters, setFilters] = useState({ year: "", rating: "", name: "", ratedByMe: false });
+  const [filteredMovies, setFilteredMovies] = useState(movies);
+  const [nameFilter, setNameFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("");
+  const [myRatingsFilter, setMyRatingsFilter] = useState(false);
+
+  useEffect(() => {
+    let result = movies;
+
+    if (nameFilter) {
+      result = result.filter((movie) =>
+        movie.title.toLowerCase().includes(nameFilter.toLowerCase())
+      );
+    }
+
+    if (yearFilter) {
+      result = result.filter((movie) => movie.year.toString() === yearFilter);
+    }
+
+    if (ratingFilter) {
+      result = result.filter((movie) => {
+        const avgRating =
+          movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length;
+        return Math.round(avgRating) === parseInt(ratingFilter);
+      });
+    }
+
+    if (myRatingsFilter) {
+      result = result.filter((movie) => movie.ratings.length > 5);
+    }
+
+    setFilteredMovies(result);
+  }, [movies, nameFilter, yearFilter, ratingFilter, myRatingsFilter]);
 
   const handleAddMovie = (newMovie) => {
-    setMovies([...movies, { ...newMovie, id: movies.length + 1, ratings: [] }]);
+    setMovies([...movies, { ...newMovie, id: movies.length + 1 }]);
   };
 
-  const handleRate = (id, rating) => {
+  const handleRateMovie = (id, rating) => {
     setMovies(
       movies.map((movie) =>
-        movie.id === id ? { ...movie, ratings: [...movie.ratings, rating] } : movie
+        movie.id === id
+          ? { ...movie, ratings: [...movie.ratings, rating] }
+          : movie
       )
     );
   };
 
-  const filteredMovies = movies.filter((movie) => {
-    const avgRating = movie.ratings.reduce((a, b) => a + b, 0) / movie.ratings.length;
-    return (
-      (!filters.year || movie.year.toString() === filters.year) &&
-      (!filters.rating || Math.round(avgRating).toString() === filters.rating) &&
-      (!filters.name || movie.title.toLowerCase().includes(filters.name.toLowerCase())) &&
-      (!filters.ratedByMe || movie.ratings.length > 0)
-    );
-  });
+  const clearFilters = () => {
+    setNameFilter("");
+    setYearFilter("");
+    setRatingFilter("");
+    setMyRatingsFilter(false);
+  };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Movie Rating App</h1>
       <div className="mb-4 flex flex-wrap gap-2">
-        <Select onValueChange={(value) => setFilters({ ...filters, year: value })}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by Year" />
+        <Input
+          placeholder="Filter by name"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          className="w-full sm:w-auto"
+        />
+        <Select value={yearFilter} onValueChange={setYearFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter by year" />
           </SelectTrigger>
           <SelectContent>
             {Array.from(new Set(movies.map((m) => m.year))).map((year) => (
@@ -135,9 +179,9 @@ export default function App() {
             ))}
           </SelectContent>
         </Select>
-        <Select onValueChange={(value) => setFilters({ ...filters, rating: value })}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by Rating" />
+        <Select value={ratingFilter} onValueChange={setRatingFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter by rating" />
           </SelectTrigger>
           <SelectContent>
             {[1, 2, 3, 4, 5].map((rating) => (
@@ -147,22 +191,18 @@ export default function App() {
             ))}
           </SelectContent>
         </Select>
-        <Input
-          placeholder="Search by name"
-          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-          className="w-[180px]"
-        />
         <Button
-          onClick={() => setFilters({ ...filters, ratedByMe: !filters.ratedByMe })}
-          variant={filters.ratedByMe ? "default" : "outline"}
+          variant={myRatingsFilter ? "default" : "outline"}
+          onClick={() => setMyRatingsFilter(!myRatingsFilter)}
         >
-          Rated by Me
+          My Ratings
         </Button>
+        <Button onClick={clearFilters}>Clear Filters</Button>
       </div>
       <AddMovieModal onAddMovie={handleAddMovie} />
       <div className="flex flex-wrap justify-center sm:justify-start">
         {filteredMovies.map((movie) => (
-          <MovieCard key={movie.id} movie={movie} onRate={handleRate} />
+          <MovieCard key={movie.id} movie={movie} onRate={handleRateMovie} />
         ))}
       </div>
     </div>

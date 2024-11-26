@@ -1,245 +1,205 @@
+import React, { useState, useEffect } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-// Mock data for initial render
-const initialSalesData = [
-  { id: 1, product: 'Product A', revenue: 1000, date: '2023-01-01' },
-  { id: 2, product: 'Product B', revenue: 1500, date: '2023-01-02' },
-];
-
-const initialUsersData = [
-  {
-    id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    registrationDate: '2023-01-01',
-  },
-  {
-    id: 2,
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    registrationDate: '2023-01-02',
-  },
-];
+// Complete sample data with 20 records
+const initialData = Array.from({ length: 20 }, (_, i) => ({
+  first_name: `First${i + 1}`,
+  last_name: `Last${i + 1}`,
+  email: `user${i + 1}@example.com`,
+  product_name: `Product ${i + 1}`,
+  product_id: `prod_00${i + 1}`,
+  total_price: (i + 1) * 10,
+  unit_price: (i + 1) * 5,
+  quantity: i % 5 + 1,
+  phone_number: `+141555526${70 + i}`,
+  registration_date: new Date().toISOString(),
+  status: i % 2 === 0 ? "active" : "inactive",
+  address: `Address ${i + 1}`,
+  payment_status: i % 2 === 0 ? "completed" : "pending",
+  delivery_status: i % 2 === 0 ? "delivered" : "pending",
+  region: i % 2 === 0 ? "North America" : "Europe",
+  sales_channel: i % 2 === 0 ? "online" : "in-store",
+  discount_applied: (i % 3 + 1) * 5,
+}));
 
 export default function App() {
-  const [salesData, setSalesData] = useState(initialSalesData);
-  const [usersData, setUsersData] = useState(initialUsersData);
-  const [activeTab, setActiveTab] = useState('sales');
-  const [refreshInterval, setRefreshInterval] = useState(5000);
-  const [sortColumn, setSortColumn] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [filterValue, setFilterValue] = useState('');
+  const [data, setData] = useState(initialData);
+  const [filteredData, setFilteredData] = useState(data);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState({});
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
 
-  // Simulated real-time updates
+  const itemsPerPage = 5;
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (activeTab === 'sales') {
-        setSalesData((prevData) => [
-          ...prevData,
-          {
-            id: prevData.length + 1,
-            product: `Product ${String.fromCharCode(
-              65 + Math.floor(Math.random() * 26)
-            )}`,
-            revenue: Math.floor(Math.random() * 2000) + 500,
-            date: new Date().toISOString().split('T')[0],
-          },
-        ]);
-      } else {
-        setUsersData((prevData) => [
-          ...prevData,
-          {
-            id: prevData.length + 1,
-            name: `User ${prevData.length + 1}`,
-            email: `user${prevData.length + 1}@example.com`,
-            registrationDate: new Date().toISOString().split('T')[0],
-          },
-        ]);
-      }
-    }, refreshInterval);
+    let result = data;
 
-    return () => clearInterval(interval);
-  }, [activeTab, refreshInterval]);
+    // Apply filters
+    Object.keys(filters).forEach((key) => {
+      result = result.filter((item) =>
+        item[key]?.toString().toLowerCase().includes(filters[key].toLowerCase())
+      );
+    });
+
+    // Apply sorting
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        const aValue = parseFloat(a[sortConfig.key]) || a[sortConfig.key];
+        const bValue = parseFloat(b[sortConfig.key]) || b[sortConfig.key];
+        if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    setFilteredData(result);
+    setCurrentPage(1);
+  }, [data, filters, sortConfig]);
+
+  const handleFilter = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "ascending" ? "descending" : "ascending",
+    }));
+  };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target.result;
-        const rows = content.split('\n');
-        const headers = rows[0].split(',');
-        const newData = rows.slice(1).map((row) => {
-          const values = row.split(',');
-          return headers.reduce((obj, header, index) => {
-            obj[header.trim()] = values[index].trim();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csv = e.target.result;
+        const lines = csv.split("\n");
+        const headers = lines[0].split(",");
+        const newData = lines.slice(1).map((line) => {
+          const values = line.split(",");
+          const parsedData = headers.reduce((obj, header, index) => {
+            const key = header.trim();
+            let value = values[index]?.trim();
+            if (key === "discount_applied") value = parseFloat(value) || 0; // Ensure discount_applied is a number
+            obj[key] = value;
             return obj;
           }, {});
+          return parsedData;
         });
-
-        if (activeTab === 'sales') {
-          setSalesData(newData);
-        } else {
-          setUsersData(newData);
-        }
-      };
-      reader.readAsText(file);
-    }
+        setData(newData);
+      } catch (error) {
+        alert("Error parsing CSV. Please ensure it matches the required format.");
+      }
+    };
+    reader.readAsText(file);
   };
 
-  const handleExport = () => {
-    const data = activeTab === 'sales' ? salesData : usersData;
-    const headers = Object.keys(data[0]).join(',');
+  const exportToCSV = () => {
+    const headers = Object.keys(data[0]).join(",");
     const csv = [
       headers,
-      ...data.map((row) => Object.values(row).join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+      ...filteredData.map((row) => Object.values(row).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${activeTab}_data.csv`);
-      link.style.visibility = 'hidden';
+      link.setAttribute("href", url);
+      link.setAttribute("download", "export.csv");
+      link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
   };
 
-  const handleSort = (column) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
-
-  const filteredData = (activeTab === 'sales' ? salesData : usersData).filter(
-    (item) =>
-      Object.values(item).some((value) =>
-        value.toString().toLowerCase().includes(filterValue.toLowerCase())
-      )
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
-
-  const sortedData = [...filteredData].sort((a, b) => {
-    if (a[sortColumn] < b[sortColumn]) return sortDirection === 'asc' ? -1 : 1;
-    if (a[sortColumn] > b[sortColumn]) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Real-Time Data Dashboard</h1>
-      <div className="flex flex-col sm:flex-row justify-between mb-4">
-        <div className="flex space-x-2 mb-2 sm:mb-0">
-          <Button
-            onClick={() => setActiveTab('sales')}
-            variant={activeTab === 'sales' ? 'default' : 'outline'}
-          >
-            Sales
-          </Button>
-          <Button
-            onClick={() => setActiveTab('users')}
-            variant={activeTab === 'users' ? 'default' : 'outline'}
-          >
-            Users
-          </Button>
-        </div>
-        <div className="flex space-x-2">
-          <Input
-            type="file"
-            accept=".csv"
-            onChange={handleFileUpload}
-            className="max-w-xs"
-          />
-          <Button onClick={handleExport}>Export CSV</Button>
-        </div>
-      </div>
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>Dashboard Settings</CardTitle>
+          <CardTitle>Real-Time Data Dashboard</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-            <Select
-              value={refreshInterval.toString()}
-              onValueChange={(value) => setRefreshInterval(parseInt(value))}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Refresh Interval" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Input placeholder="Filter by name" onChange={(e) => handleFilter("first_name", e.target.value)} />
+            <Input placeholder="Filter by email" onChange={(e) => handleFilter("email", e.target.value)} />
+            <Input placeholder="Filter by price" onChange={(e) => handleFilter("total_price", e.target.value)} />
+            <Select onValueChange={(value) => handleFilter("delivery_status", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by delivery status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1000">1 second</SelectItem>
-                <SelectItem value="5000">5 seconds</SelectItem>
-                <SelectItem value="10000">10 seconds</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              placeholder="Filter data..."
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              className="w-full sm:w-auto"
-            />
+            <Select onValueChange={(value) => handleFilter("payment_status", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by payment status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select onValueChange={(value) => handleFilter("sales_channel", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by sales channel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="in-store">In-store</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {activeTab === 'sales' ? 'Sales Data' : 'Users Data'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          <div className="flex justify-between mb-4">
+            <input type="file" accept=".csv" onChange={handleFileUpload} />
+            <Button onClick={exportToCSV}>Export to CSV</Button>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
-                {Object.keys(sortedData[0] || {}).map((key) => (
-                  <TableHead
-                    key={key}
-                    onClick={() => handleSort(key)}
-                    className="cursor-pointer"
-                  >
-                    {key.charAt(0).toUpperCase() + key.slice(1)}
-                    {sortColumn === key &&
-                      (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                {Object.keys(initialData[0]).map((key) => (
+                  <TableHead key={key} onClick={() => handleSort(key)} className="cursor-pointer">
+                    {key.replace(/_/g, " ")}
                   </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedData.map((item, index) => (
+              {paginatedData.map((item, index) => (
                 <TableRow key={index}>
-                  {Object.values(item).map((value, i) => (
-                    <TableCell key={i}>{value}</TableCell>
+                  {Object.values(item).map((value, idx) => (
+                    <TableCell key={idx}>{value}</TableCell>
                   ))}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          <div className="flex justify-between mt-4">
+            <Button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+              Previous
+            </Button>
+            <span>Page {currentPage} of {Math.ceil(filteredData.length / itemsPerPage)}</span>
+            <Button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(filteredData.length / itemsPerPage)))}
+              disabled={currentPage === Math.ceil(filteredData.length / itemsPerPage)}
+            >
+              Next
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-

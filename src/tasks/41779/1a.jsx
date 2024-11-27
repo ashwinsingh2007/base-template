@@ -1,164 +1,111 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { Button, Switch, Select, SelectItem } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { format, add, isFuture, isPast } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { format, addDays, isFuture, set } from 'date-fns';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// List of timezones for the selector
 const timeZones = [
-  'UTC', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo'
+  { label: 'UTC', value: 'UTC' },
+  { label: 'EST', value: 'America/New_York' },
+  { label: 'PST', value: 'America/Los_Angeles' },
+  { label: 'IST', value: 'Asia/Kolkata' },
 ];
 
-function Clock({ timezone, format24 }) {
+function App() {
   const [time, setTime] = useState(new Date());
+  const [format24, setFormat24] = useState(false);
+  const [timezone, setTimezone] = useState('UTC');
+  const [isDark, setIsDark] = useState(false);
+  const [alarms, setAlarms] = useState([]);
+  const [showAlarmDialog, setShowAlarmDialog] = useState(false);
+  const [currentAlarm, setCurrentAlarm] = useState({ date: new Date(), id: Date.now() });
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
     }, 1000);
+
     return () => clearInterval(timer);
   }, []);
 
-  const zonedTime = utcToZonedTime(time, timezone);
-  const displayTime = format(zonedTime, format24 ? 'HH:mm:ss' : 'hh:mm:ss a');
+  const toggleFormat = () => setFormat24(!format24);
+  const handleTimezoneChange = (value) => setTimezone(value);
+  const toggleTheme = () => setIsDark(!isDark);
 
-  return (
-    <div className="text-4xl font-mono">
-      {displayTime}
-    </div>
-  );
-}
-
-function DateDisplay({ timezone }) {
-  const [date, setDate] = useState(new Date());
-
-  useEffect(() => {
-    const dateTimer = setInterval(() => {
-      setDate(new Date());
-    }, 60000); // Update every minute for the date
-    return () => clearInterval(dateTimer);
-  }, []);
-
-  const zonedDate = utcToZonedTime(date, timezone);
-  return (
-    <div className="mt-2 text-sm">
-      {format(zonedDate, 'EEEE, MMMM dd, yyyy')}
-    </div>
-  );
-}
-
-function Alarm({ alarm, onDelete, onEdit }) {
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
-  return (
-    <Card className="mb-2">
-      <CardContent>
-        <p>{format(new Date(alarm.date), 'hh:mm a, EEEE, MMMM dd, yyyy')}</p>
-        <Button onClick={() => setIsConfirmingDelete(true)} variant="destructive" size="sm">Delete</Button>
-        <Button onClick={onEdit} className="ml-2" size="sm">Edit</Button>
-      </CardContent>
-      {isConfirmingDelete && (
-        <div className="p-4 bg-background border-t border-border">
-          <p>Are you sure?</p>
-          <Button onClick={() => onDelete(alarm.id)} className="mt-2">Confirm Delete</Button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-export default function App() {
-  const [format24, setFormat24] = useState(false);
-  const [timezone, setTimezone] = useState('UTC');
-  const [theme, setTheme] = useState('light');
-  const [alarms, setAlarms] = useState([]);
-  const [alarmTime, setAlarmTime] = useState('');
-  const [alarmDate, setAlarmDate] = useState('');
-
-  const addAlarm = useCallback(() => {
-    const alarmDateTime = new Date(`${alarmDate}T${alarmTime}`);
-    if (isPast(alarmDateTime)) {
-      alert("Cannot set alarm for past time.");
+  const handleAlarmSubmit = () => {
+    if (!isFuture(currentAlarm.date)) {
+      alert('Cannot set alarm for a past time.');
       return;
     }
-    const newAlarm = {
-      id: Date.now(),
-      date: alarmDateTime.toISOString(),
-    };
-    setAlarms(prev => [...prev, newAlarm]);
-    setAlarmTime('');
-    setAlarmDate('');
-  }, [alarmDate, alarmTime]);
-
-  const deleteAlarm = (id) => {
-    setAlarms(prev => prev.filter(alarm => alarm.id !== id));
+    const dayAlarms = alarms.filter(a => format(a.date, 'yyyy-MM-dd') === format(currentAlarm.date, 'yyyy-MM-dd'));
+    if (dayAlarms.length >= 2) {
+      alert('Only two alarms per day are allowed.');
+      return;
+    }
+    setAlarms([...alarms, { ...currentAlarm }]);
+    setShowAlarmDialog(false);
   };
 
-  const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
+  const deleteAlarm = (id) => {
+    if (window.confirm('Are you sure you want to delete this alarm?')) {
+      setAlarms(alarms.filter(a => a.id !== id));
+    }
+  };
+
+  const timeFormat = format24 ? 'HH:mm:ss' : 'hh:mm:ss a';
 
   return (
-    <div className={`min-h-screen p-4 ${theme === 'light' ? 'bg-white text-black' : 'bg-gray-800 text-white'} sm:p-8`}>
-      <Card>
+    <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+      <Card className="sm:w-96 w-full m-4">
         <CardHeader>
           <CardTitle>Digital Clock</CardTitle>
         </CardHeader>
         <CardContent>
-          <Clock timezone={timezone} format24={format24} />
-          <DateDisplay timezone={timezone} />
-          <div className="flex items-center justify-between mt-4">
-            <Switch checked={format24} onCheckedChange={setFormat24} /> 
-            <span>{format24 ? '24-hour' : '12-hour'}</span>
-          </div>
-          <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger className="w-[180px] mt-2">
-              <SelectValue placeholder="Select Timezone" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeZones.map(tz => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="mt-4 flex items-center">
-            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
-            <span className="ml-2">{theme === 'light' ? 'Light Mode' : 'Dark Mode'}</span>
+          <div className="text-4xl mb-4">{time.toLocaleTimeString('en-US', { timeZone: timezone, hour12: !format24, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+          <div>{format(time, 'EEEE, MMMM dd, yyyy', { timeZone: timezone })}</div>
+          <div className="mt-4 space-x-2">
+            <Switch checked={format24} onCheckedChange={toggleFormat}>24h</Switch>
+            <Select value={timezone} onValueChange={handleTimezoneChange}>
+              {timeZones.map(tz => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
+            </Select>
+            <Switch checked={isDark} onCheckedChange={toggleTheme}>Dark</Switch>
           </div>
         </CardContent>
+        <Tabs defaultValue="clock" className="w-full">
+          <TabsList>
+            <TabsTrigger value="clock">Clock</TabsTrigger>
+            <TabsTrigger value="alarms">Alarms</TabsTrigger>
+          </TabsList>
+          <TabsContent value="alarms">
+            <Button onClick={() => { setShowAlarmDialog(true); setCurrentAlarm({ date: new Date(), id: Date.now() }); }}>Add Alarm</Button>
+            {alarms.map(alarm => (
+              <div key={alarm.id} className="mt-2 flex justify-between items-center">
+                <span>{format(alarm.date, timeFormat)}</span>
+                <Button onClick={() => deleteAlarm(alarm.id)} variant="destructive">Delete</Button>
+              </div>
+            ))}
+          </TabsContent>
+        </Tabs>
       </Card>
-
-      <Tabs defaultValue="set" className="mt-4">
-        <TabsList>
-          <TabsTrigger value="set">Set Alarm</TabsTrigger>
-          <TabsTrigger value="view">View Alarms</TabsTrigger>
-        </TabsList>
-        <TabsContent value="set">
-          <Input 
-            type="time" 
-            value={alarmTime} 
-            onChange={e => setAlarmTime(e.target.value)} 
-            className="mt-2"
+      <Dialog open={showAlarmDialog} onOpenChange={setShowAlarmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Alarm</DialogTitle>
+          </DialogHeader>
+          <input 
+            type="datetime-local" 
+            value={format(currentAlarm.date, 'yyyy-MM-ddTHH:mm')} 
+            onChange={(e) => setCurrentAlarm({...currentAlarm, date: new Date(e.target.value)})}
+            className="w-full p-2 border rounded"
           />
-          <Input 
-            type="date" 
-            value={alarmDate} 
-            onChange={e => setAlarmDate(e.target.value)} 
-            className="mt-2"
-          />
-          <Button onClick={addAlarm} className="mt-2">Add Alarm</Button>
-        </TabsContent>
-        <TabsContent value="view">
-          {alarms.map(alarm => (
-            <Alarm 
-              key={alarm.id} 
-              alarm={alarm} 
-              onDelete={deleteAlarm} 
-              onEdit={() => alert('Edit functionality to be implemented')} // Placeholder for edit functionality
-            />
-          ))}
-        </TabsContent>
-      </Tabs>
+          <DialogFooter>
+            <Button type="submit" onClick={handleAlarmSubmit}>Set Alarm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+export default App;

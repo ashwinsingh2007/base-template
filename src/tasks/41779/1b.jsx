@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const timezones = [
   { value: "UTC", label: "UTC" },
   { value: "America/New_York", label: "EST" },
   { value: "America/Los_Angeles", label: "PST" },
-  { value: "Europe/London", label: "GMT" },
-  { value: "Asia/Tokyo", label: "JST" },
+  { value: "Asia/Kolkata", label: "IST" },
 ];
 
 function Clock({ is24Hour, timezone }) {
@@ -24,43 +23,62 @@ function Clock({ is24Hour, timezone }) {
     return () => clearInterval(timer);
   }, []);
 
-  const formattedTime = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hour12: !is24Hour,
-    timeZone: timezone,
-  }).format(time);
+  const formatTime = (date) => {
+    const options = {
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: !is24Hour,
+      timeZone: timezone,
+    };
+    return new Intl.DateTimeFormat("en-US", options).format(date);
+  };
 
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: timezone,
-  }).format(time);
+  const formatDate = (date) => {
+    const options = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: timezone,
+    };
+    return new Intl.DateTimeFormat("en-US", options).format(date);
+  };
 
   return (
     <div className="text-center">
-      <h2 className="text-4xl font-bold">{formattedTime}</h2>
-      <p className="text-lg">{formattedDate}</p>
+      <h2 className="text-4xl font-bold">{formatTime(time)}</h2>
+      <p className="text-lg">{formatDate(time)}</p>
     </div>
   );
 }
 
-function AlarmForm({ onAddAlarm }) {
+function AlarmForm({ onAddAlarm, alarms }) {
   const [alarmDateTime, setAlarmDateTime] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const now = new Date();
     const alarmDate = new Date(alarmDateTime);
-    if (alarmDate <= now) {
-      alert("Cannot set alarm for past date and time");
+    const today = new Date();
+
+    if (alarmDate <= today) {
+      setError("Cannot set alarm for past date/time");
       return;
     }
-    onAddAlarm(alarmDate);
+
+    const sameDay = alarms.filter(
+      (alarm) => new Date(alarm.dateTime).toDateString() === alarmDate.toDateString()
+    );
+
+    if (sameDay.length >= 2) {
+      setError("Cannot set more than 2 alarms for the same day");
+      return;
+    }
+
+    onAddAlarm({ id: Date.now(), dateTime: alarmDateTime });
     setAlarmDateTime("");
+    setError("");
   };
 
   return (
@@ -72,37 +90,34 @@ function AlarmForm({ onAddAlarm }) {
         required
       />
       <Button type="submit">Set Alarm</Button>
+      {error && <Alert variant="destructive">{error}</Alert>}
     </form>
   );
 }
 
-function AlarmList({ alarms, onEditAlarm, onDeleteAlarm }) {
+function AlarmList({ alarms, onDeleteAlarm, onEditAlarm }) {
   return (
     <ul className="space-y-2">
-      {alarms.map((alarm, index) => (
-        <li key={index} className="flex items-center justify-between">
-          <span>{alarm.toLocaleString()}</span>
+      {alarms.map((alarm) => (
+        <li key={alarm.id} className="flex items-center justify-between">
+          <span>{new Date(alarm.dateTime).toLocaleString()}</span>
           <div>
-            <Button onClick={() => onEditAlarm(index)} className="mr-2">Edit</Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <Button onClick={() => onEditAlarm(alarm)} className="mr-2">
+              Edit
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button variant="destructive">Delete</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the alarm.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDeleteAlarm(index)}>
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you sure you want to delete this alarm?</DialogTitle>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button onClick={() => onDeleteAlarm(alarm.id)}>Confirm</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </li>
       ))}
@@ -115,34 +130,22 @@ export default function App() {
   const [timezone, setTimezone] = useState("UTC");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [alarms, setAlarms] = useState([]);
-  const [editingAlarmIndex, setEditingAlarmIndex] = useState(null);
 
-  useEffect(() => {
-    document.body.className = isDarkMode ? "dark" : "";
-  }, [isDarkMode]);
-
-  const handleAddAlarm = (newAlarm) => {
+  const addAlarm = (newAlarm) => {
     setAlarms([...alarms, newAlarm]);
   };
 
-  const handleEditAlarm = (index) => {
-    setEditingAlarmIndex(index);
+  const deleteAlarm = (id) => {
+    setAlarms(alarms.filter((alarm) => alarm.id !== id));
   };
 
-  const handleUpdateAlarm = (updatedAlarm) => {
-    const updatedAlarms = [...alarms];
-    updatedAlarms[editingAlarmIndex] = updatedAlarm;
-    setAlarms(updatedAlarms);
-    setEditingAlarmIndex(null);
-  };
-
-  const handleDeleteAlarm = (index) => {
-    const updatedAlarms = alarms.filter((_, i) => i !== index);
-    setAlarms(updatedAlarms);
+  const editAlarm = (editedAlarm) => {
+    console.log("::::::::", editedAlarm)
+    setAlarms(alarms.map((alarm) => (alarm.id === editedAlarm.id ? editedAlarm : alarm)));
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "dark bg-gray-900 text-white" : "bg-white text-black"}`}>
+    <div className={`min-h-screen ${isDarkMode ? "dark bg-gray-900 text-white" : "bg-gray-100"}`}>
       <div className="container mx-auto p-4">
         <Card className="w-full max-w-md mx-auto">
           <CardHeader>
@@ -150,7 +153,7 @@ export default function App() {
           </CardHeader>
           <CardContent>
             <Clock is24Hour={is24Hour} timezone={timezone} />
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span>24-Hour Format</span>
                 <Switch checked={is24Hour} onCheckedChange={setIs24Hour} />
@@ -172,48 +175,20 @@ export default function App() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full max-w-md mx-auto mt-4">
-          <CardHeader>
-            <CardTitle>Alarms</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="set">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="set">Set Alarm</TabsTrigger>
-                <TabsTrigger value="view">View Alarms</TabsTrigger>
+            <Tabs defaultValue="set-alarm" className="mt-4">
+              <TabsList>
+                <TabsTrigger value="set-alarm">Set Alarm</TabsTrigger>
+                <TabsTrigger value="alarms">Alarms</TabsTrigger>
               </TabsList>
-              <TabsContent value="set">
-                <AlarmForm onAddAlarm={handleAddAlarm} />
+              <TabsContent value="set-alarm">
+                <AlarmForm onAddAlarm={addAlarm} alarms={alarms} />
               </TabsContent>
-              <TabsContent value="view">
-                <AlarmList
-                  alarms={alarms}
-                  onEditAlarm={handleEditAlarm}
-                  onDeleteAlarm={handleDeleteAlarm}
-                />
+              <TabsContent value="alarms">
+                <AlarmList alarms={alarms} onDeleteAlarm={deleteAlarm} onEditAlarm={editAlarm} />
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-
-        {editingAlarmIndex !== null && (
-          <Dialog open={true} onOpenChange={() => setEditingAlarmIndex(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Alarm</DialogTitle>
-              </DialogHeader>
-              <AlarmForm
-                onAddAlarm={(updatedAlarm) => handleUpdateAlarm(updatedAlarm)}
-              />
-              <DialogFooter>
-                <Button onClick={() => setEditingAlarmIndex(null)}>Cancel</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
     </div>
   );

@@ -2,36 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { format } from 'date-fns';
 
-const choices = ['Rock', 'Paper', 'Scissors'];
-
-const generateDummyHistory = () => {
-  return Array.from({ length: 10 }, (_, i) => ({
-    id: i,
-    date: new Date(Date.now() - i * 1000 * 60 * 60),
-    userChoice: choices[Math.floor(Math.random() * 3)],
-    computerChoice: choices[Math.floor(Math.random() * 3)],
-    result: Math.random() > 0.5 ? 'User' : 'Computer'
-  }));
-};
-
-const App = () => {
+function Game() {
+  const choices = ['Rock', 'Paper', 'Scissors'];
   const [userChoice, setUserChoice] = useState(null);
   const [computerChoice, setComputerChoice] = useState(null);
   const [result, setResult] = useState('');
-  const [history, setHistory] = useState(generateDummyHistory());
+  const [userScore, setUserScore] = useState(0);
+  const [computerScore, setComputerScore] = useState(0);
+  const [ties, setTies] = useState(0);
+  const [history, setHistory] = useState(Array(10).fill().map((_, i) => ({
+    id: i,
+    userChoice: choices[Math.floor(Math.random() * 3)],
+    computerChoice: choices[Math.floor(Math.random() * 3)],
+    result: Math.random() > 0.5 ? 'User' : (Math.random() < 0.5 ? 'Computer' : 'Tie'),
+    date: new Date(Date.now() - Math.random() * 100000000),
+  })));
   const [currentPage, setCurrentPage] = useState(1);
-  const [theme, setTheme] = useState('light');
-  const [filters, setFilters] = useState({ winner: '', result: '', time: '' });
-
-  const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
-
-  const play = (choice) => {
+  const [filter, setFilter] = useState({ winner: '', result: '', dateRange: '24' });
+  
+  const playGame = (choice) => {
     const compChoice = choices[Math.floor(Math.random() * choices.length)];
     setUserChoice(choice);
     setComputerChoice(compChoice);
+    
     let gameResult = '';
     if (
       (choice === 'Rock' && compChoice === 'Scissors') ||
@@ -39,109 +37,140 @@ const App = () => {
       (choice === 'Scissors' && compChoice === 'Paper')
     ) {
       gameResult = 'You Win!';
+      setUserScore(userScore + 1);
     } else if (choice === compChoice) {
-      gameResult = 'It’s a Tie!';
+      gameResult = "It's a Tie!";
+      setTies(ties + 1);
     } else {
       gameResult = 'Computer Wins!';
+      setComputerScore(computerScore + 1);
     }
     setResult(gameResult);
+    
     setHistory(prev => [...prev, {
       id: prev.length,
-      date: new Date(),
       userChoice: choice,
       computerChoice: compChoice,
-      result: gameResult.includes('You') ? 'User' : (gameResult.includes('Computer') ? 'Computer' : 'Tie')
+      result: gameResult.includes('Win') ? 'User' : (gameResult.includes('Tie') ? 'Tie' : 'Computer'),
+      date: new Date(),
     }]);
   };
 
-  const stats = history.reduce((acc, game) => {
-    acc[game.result === 'User' ? 'userWins' : (game.result === 'Computer' ? 'computerWins' : 'ties')]++;
-    return acc;
-  }, { userWins: 0, computerWins: 0, ties: 0 });
-
-  const filteredHistory = history.filter(game => 
-    (!filters.winner || game.result === filters.winner) &&
-    (!filters.result || (filters.result === 'Win' && game.result === 'User') || (filters.result === 'Loss' && game.result === 'Computer') || (filters.result === 'Tie' && game.result === 'Tie')) &&
-    (!filters.time || (() => {
-      const now = new Date();
-      const hours = parseInt(filters.time.split(' ')[1]);
-      return now - game.date <= hours * 60 * 60 * 1000;
-    })())
-  );
+  const filteredHistory = history
+    .filter(h => filter.winner === '' || h.result === filter.winner)
+    .filter(h => filter.result === '' || (h.result === 'Tie' ? 'Tie' : 'Win/Loss') === filter.result)
+    .filter(h => {
+      const hours = parseInt(filter.dateRange);
+      return new Date() - h.date < hours * 60 * 60 * 1000;
+    });
 
   const paginatedHistory = filteredHistory.slice((currentPage - 1) * 5, currentPage * 5);
 
   return (
-    <div className={`min-h-screen bg-background ${theme === 'dark' ? 'dark' : ''}`}>
-      <button onClick={toggleTheme} className="fixed top-4 right-4 z-10">Toggle Theme</button>
-      <Tabs defaultValue="game" className="w-full max-w-lg mx-auto p-4">
-        <TabsList>
-          <TabsTrigger value="game">Game</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="stats">Stats</TabsTrigger>
-        </TabsList>
-        <TabsContent value="game">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rock Paper Scissors</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center space-y-4">
-              <div className="flex space-x-4">
-                {choices.map(choice => 
-                  <Button key={choice} onClick={() => play(choice)}>{choice}</Button>
-                )}
+    <div className="container mx-auto p-4 sm:p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Rock, Paper, Scissors</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center space-y-4">
+            {choices.map(choice => 
+              <Button key={choice} onClick={() => playGame(choice)}>{choice}</Button>
+            )}
+            {userChoice && computerChoice && 
+              <div>
+                <p>You chose: {userChoice}</p>
+                <p>Computer chose: {computerChoice}</p>
+                <p>{result}</p>
               </div>
-              {userChoice && <p>You chose: {userChoice}</p>}
-              {computerChoice && <p>Computer chose: {computerChoice}</p>}
-              {result && <p>{result}</p>}
+            }
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="stats" className="w-full mt-4">
+        <TabsList>
+          <TabsTrigger value="stats">Stats</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="stats">
+          <Card>
+            <CardContent>
+              <p>User Wins: {userScore}</p>
+              <p>Computer Wins: {computerScore}</p>
+              <p>Ties: {ties}</p>
+              <p>Win Percentage: {((userScore / (userScore + computerScore + ties)) * 100 || 0).toFixed(2)}%</p>
+              <p>Most Frequent User Choice: {userScore > computerScore && userScore > ties ? 'Rock' : 'Paper'}</p>
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Game History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <Label>Filter by Winner</Label>
-                <Input type="text" onChange={(e) => setFilters({...filters, winner: e.target.value})} placeholder="User/Computer" />
-                <Label>Filter by Result</Label>
-                <Input type="text" onChange={(e) => setFilters({...filters, result: e.target.value})} placeholder="Win/Loss/Tie" />
-                <Label>Filter by Time</Label>
-                <Input type="text" onChange={(e) => setFilters({...filters, time: e.target.value})} placeholder="Last X hours" />
-              </div>
-              {paginatedHistory.map(game => (
-                <div key={game.id} className="border-b py-2">
-                  <p>{game.date.toLocaleString()}</p>
-                  <p>{game.userChoice} vs {game.computerChoice}</p>
-                  <p>Winner: {game.result}</p>
-                </div>
+          <div className="flex justify-between items-center mb-4">
+            <Input 
+              placeholder="Filter by winner" 
+              value={filter.winner} 
+              onChange={e => setFilter({...filter, winner: e.target.value})} 
+            />
+            <select 
+              onChange={e => setFilter({...filter, result: e.target.value})}
+              value={filter.result}
+              className="p-2 border rounded"
+            >
+              <option value="">All Results</option>
+              <option value="Win/Loss">Win/Loss</option>
+              <option value="Tie">Tie</option>
+            </select>
+            <select 
+              onChange={e => setFilter({...filter, dateRange: e.target.value})}
+              value={filter.dateRange}
+              className="p-2 border rounded"
+            >
+              <option value="1">Last 1 hour</option>
+              <option value="2">Last 2 hours</option>
+              <option value="12">Last 12 hours</option>
+              <option value="24">Last 24 hours</option>
+            </select>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Computer</TableHead>
+                <TableHead>Winner</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedHistory.map((game) => (
+                <TableRow key={game.id}>
+                  <TableCell>{format(game.date, 'MM/dd/yyyy HH:mm')}</TableCell>
+                  <TableCell>{game.userChoice}</TableCell>
+                  <TableCell>{game.computerChoice}</TableCell>
+                  <TableCell>{game.result}</TableCell>
+                </TableRow>
               ))}
-              <div className="mt-4 flex justify-between">
-                <Button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)}>Prev</Button>
-                <Button onClick={() => setCurrentPage(prev => prev + 1)} disabled={currentPage * 5 >= filteredHistory.length}>Next</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="stats">
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>User Wins: {stats.userWins}</p>
-              <p>Computer Wins: {stats.computerWins}</p>
-              <p>Ties: {stats.ties}</p>
-              {/* Note: For simplicity, average duration and win percentage are not calculated here */}
-              <p>Most Frequent User Choice: {/* Logic for most frequent choice would go here */}</p>
-            </CardContent>
-          </Card>
+            </TableBody>
+          </Table>
+          <div className="flex justify-between mt-4">
+            <Button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)}>Previous</Button>
+            <Button onClick={() => setCurrentPage(prev => prev + 1)}>Next</Button>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
-};
+}
 
-export default App;
+export default function App() {
+  const [isDark, setIsDark] = useState(false);
+
+  return (
+    <div className={`${isDark ? 'dark' : ''} bg-background min-h-screen`}>
+      <div className="flex justify-end p-4">
+        <Checkbox checked={isDark} onCheckedChange={setIsDark} id="theme-switch" />
+        <label htmlFor="theme-switch" className="ml-2">Dark Mode</label>
+      </div>
+      <Game />
+    </div>
+  );
+}

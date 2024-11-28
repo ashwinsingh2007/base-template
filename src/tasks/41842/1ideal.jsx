@@ -10,10 +10,17 @@ import { Switch } from "@/components/ui/switch";
 
 // Initial image dataset
 const initialImages = [
-  // Each image object contains details such as title, description, tags, etc.
-  { id: 1, title: "Mountain Landscape", description: "A beautiful mountain landscape", date: "2023-06-15", tags: ["nature", "mountain"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
-  // More images...
-];
+    { id: 1, title: "Mountain Landscape", description: "A beautiful mountain landscape", date: "2023-06-15", tags: ["nature", "mountain"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 2, title: "City Skyline", description: "A stunning city skyline at night", date: "2023-07-01", tags: ["city", "night"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 3, title: "Ocean View", description: "A serene ocean view at sunset", date: "2023-07-10", tags: ["ocean", "sunset"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 4, title: "Forest Trail", description: "A peaceful trail through the forest", date: "2023-08-05", tags: ["forest", "nature"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 5, title: "Desert Dunes", description: "Golden sand dunes under a clear sky", date: "2023-08-15", tags: ["desert", "sand"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 6, title: "Snowy Mountains", description: "Snow-covered mountains in winter", date: "2023-09-01", tags: ["snow", "mountain"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 7, title: "Countryside", description: "A scenic countryside landscape", date: "2023-09-20", tags: ["countryside", "nature"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 8, title: "Beach", description: "Waves crashing on the shore", date: "2023-10-10", tags: ["beach", "waves"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 9, title: "Rainforest", description: "Lush rainforest with vibrant greenery", date: "2023-10-25", tags: ["rainforest", "green"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+    { id: 10, title: "Aurora", description: "Northern lights over a snowy field", date: "2023-11-01", tags: ["aurora", "lights"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  ];
 
 // Component to display individual image card
 function ImageCard({ image, onClick }) {

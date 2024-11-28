@@ -1,16 +1,23 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 const initialImages = [
-  { id: 1, title: "Mountain Landscape", description: "A beautiful mountain landscape", date: "2023-06-15", tags: ["nature", "mountain"], url: "https://example.com/mountain.jpg" },
-  { id: 2, title: "City Skyline", description: "A stunning city skyline at night", date: "2023-07-01", tags: ["city", "night"], url: "https://example.com/city.jpg" },
-  // Add 8 more images here...
+  { id: 1, title: "Mountain Landscape", description: "A beautiful mountain landscape", date: "2023-06-15", tags: ["nature", "mountain"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 2, title: "City Skyline", description: "A stunning city skyline at night", date: "2023-07-01", tags: ["city", "night"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 3, title: "Ocean View", description: "A serene ocean view at sunset", date: "2023-07-10", tags: ["ocean", "sunset"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 4, title: "Forest Trail", description: "A peaceful trail through the forest", date: "2023-08-05", tags: ["forest", "nature"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 5, title: "Desert Dunes", description: "Golden sand dunes under a clear sky", date: "2023-08-15", tags: ["desert", "sand"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 6, title: "Snowy Mountains", description: "Snow-covered mountains in winter", date: "2023-09-01", tags: ["snow", "mountain"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 7, title: "Countryside", description: "A scenic countryside landscape", date: "2023-09-20", tags: ["countryside", "nature"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 8, title: "Beach", description: "Waves crashing on the shore", date: "2023-10-10", tags: ["beach", "waves"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 9, title: "Rainforest", description: "Lush rainforest with vibrant greenery", date: "2023-10-25", tags: ["rainforest", "green"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
+  { id: 10, title: "Aurora", description: "Northern lights over a snowy field", date: "2023-11-01", tags: ["aurora", "lights"], url: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png" },
 ];
 
 function ImageCard({ image, onClick }) {
@@ -49,6 +56,12 @@ function ImageModal({ image, onClose }) {
 
 function AdminPanel({ images, setImages }) {
   const [newImage, setNewImage] = useState({ title: "", description: "", date: "", url: "", tags: "" });
+  const [error, setError] = useState("");
+
+  const isValidUrl = (url) => {
+    const regex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/;
+    return regex.test(url);
+  };
 
   const handleInputChange = (e) => {
     setNewImage({ ...newImage, [e.target.name]: e.target.value });
@@ -56,10 +69,15 @@ function AdminPanel({ images, setImages }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!isValidUrl(newImage.url)) {
+      setError("Please enter a valid URL.");
+      return;
+    }
     const id = images.length + 1;
     const tags = newImage.tags.split(",").map(tag => tag.trim());
     setImages([...images, { ...newImage, id, tags }]);
     setNewImage({ title: "", description: "", date: "", url: "", tags: "" });
+    setError("");
   };
 
   const handleRemove = (id) => {
@@ -75,6 +93,7 @@ function AdminPanel({ images, setImages }) {
         <Input name="description" value={newImage.description} onChange={handleInputChange} placeholder="Description" required />
         <Input name="date" value={newImage.date} onChange={handleInputChange} type="date" required />
         <Input name="url" value={newImage.url} onChange={handleInputChange} placeholder="Image URL" required />
+        {error && <p className="text-red-500 text-sm">{error}</p>}
         <Input name="tags" value={newImage.tags} onChange={handleInputChange} placeholder="Tags (comma-separated)" required />
         <Button type="submit">Add Image</Button>
       </form>

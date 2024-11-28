@@ -1,28 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast, Toaster } from "@/components/ui/toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const predefinedExercises = [
   { exercise_name: "Running", time: 30, expected_calorie_burn: 300, steps: "1. Warm up 2. Run at steady pace 3. Cool down" },
   { exercise_name: "Push-ups", time: 15, expected_calorie_burn: 100, steps: "1. Start in plank position 2. Lower body 3. Push back up" },
-  { exercise_name: "Yoga", time: 45, expected_calorie_burn: 150, steps: "1. Sun salutations 2. Standing poses 3. Seated poses" },
+  { exercise_name: "Yoga", time: 45, expected_calorie_burn: 150, steps: "1. Sun salutations 2. Standing poses 3. Floor poses" },
   // ... Add 17 more exercises here
 ];
 
@@ -30,56 +18,61 @@ const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sat
 
 export default function App() {
   const [exercises, setExercises] = useState([]);
-  const [filter, setFilter] = useState({ name: "", time: "", calories: "" });
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [selectedDay, setSelectedDay] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [timeFilter, setTimeFilter] = useState("");
+  const [calorieFilter, setCalorieFilter] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
+  const [sortBy, setSortBy] = useState("");
 
   const filteredExercises = predefinedExercises.filter(
     (exercise) =>
-      exercise.exercise_name.toLowerCase().includes(filter.name.toLowerCase()) &&
-      (filter.time === "" || exercise.time <= parseInt(filter.time)) &&
-      (filter.calories === "" || exercise.expected_calorie_burn <= parseInt(filter.calories))
+      exercise.exercise_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      (timeFilter === "" || exercise.time <= parseInt(timeFilter)) &&
+      (calorieFilter === "" || exercise.expected_calorie_burn <= parseInt(calorieFilter))
   );
 
   const addExercise = () => {
-    if (!selectedExercise || !selectedDay) {
-      toast({ title: "Error", description: "Please select an exercise and a day." });
-      return;
-    }
-
-    const isDuplicate = exercises.some(
-      (e) => e.exercise_name === selectedExercise.exercise_name && e.day_of_week_to_perform === selectedDay
-    );
-
-    if (isDuplicate) {
-      toast({ title: "Error", description: "This exercise is already scheduled for this day." });
-      return;
-    }
-
-    setExercises([...exercises, { ...selectedExercise, day_of_week_to_perform: selectedDay }]);
-    toast({ title: "Success", description: "Exercise added to your routine." });
-  };
-
-  const removeExercise = (index) => {
-    setExercises(exercises.filter((_, i) => i !== index));
-    toast({ title: "Success", description: "Exercise removed from your routine." });
-  };
-
-  const calculateSummary = () => {
-    const summary = { daily: {}, weekly: { time: 0, calories: 0 } };
-    exercises.forEach((exercise) => {
-      if (!summary.daily[exercise.day_of_week_to_perform]) {
-        summary.daily[exercise.day_of_week_to_perform] = { time: 0, calories: 0 };
+    if (selectedExercise && selectedDay) {
+      const isDuplicate = exercises.some(
+        (e) => e.exercise_name === selectedExercise.exercise_name && e.day_of_week_to_perform === selectedDay
+      );
+      if (isDuplicate) {
+        alert("This exercise already exists for the selected day!");
+      } else {
+        setExercises([...exercises, { ...selectedExercise, day_of_week_to_perform: selectedDay }]);
+        setShowAddDialog(false);
       }
-      summary.daily[exercise.day_of_week_to_perform].time += exercise.time;
-      summary.daily[exercise.day_of_week_to_perform].calories += exercise.expected_calorie_burn;
-      summary.weekly.time += exercise.time;
-      summary.weekly.calories += exercise.expected_calorie_burn;
-    });
-    return summary;
+    }
   };
 
-  const summary = calculateSummary();
+  const removeExercise = (exercise) => {
+    setExercises(exercises.filter((e) => e !== exercise));
+    setShowDeleteDialog(false);
+  };
+
+  const sortedExercises = [...exercises].sort((a, b) => {
+    if (sortBy === "time") return a.time - b.time;
+    if (sortBy === "calorie") return a.expected_calorie_burn - b.expected_calorie_burn;
+    return 0;
+  });
+
+  const dailySummary = daysOfWeek.map((day) => {
+    const dayExercises = exercises.filter((e) => e.day_of_week_to_perform === day);
+    return {
+      day,
+      totalTime: dayExercises.reduce((sum, e) => sum + e.time, 0),
+      totalCalories: dayExercises.reduce((sum, e) => sum + e.expected_calorie_burn, 0),
+    };
+  });
+
+  const weeklySummary = {
+    totalTime: dailySummary.reduce((sum, day) => sum + day.totalTime, 0),
+    totalCalories: dailySummary.reduce((sum, day) => sum + day.totalCalories, 0),
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -87,7 +80,7 @@ export default function App() {
       <Tabs defaultValue="exercises">
         <TabsList>
           <TabsTrigger value="exercises">Exercises</TabsTrigger>
-          <TabsTrigger value="my-exercises">My Exercises</TabsTrigger>
+          <TabsTrigger value="myExercises">My Exercises</TabsTrigger>
         </TabsList>
         <TabsContent value="exercises">
           <Card>
@@ -95,23 +88,23 @@ export default function App() {
               <CardTitle>Exercise List</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 mb-4">
                 <Input
-                  placeholder="Search by name"
-                  value={filter.name}
-                  onChange={(e) => setFilter({ ...filter, name: e.target.value })}
+                  placeholder="Search exercises"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <Input
                   type="number"
                   placeholder="Max time (minutes)"
-                  value={filter.time}
-                  onChange={(e) => setFilter({ ...filter, time: e.target.value })}
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
                 />
                 <Input
                   type="number"
                   placeholder="Max calories"
-                  value={filter.calories}
-                  onChange={(e) => setFilter({ ...filter, calories: e.target.value })}
+                  value={calorieFilter}
+                  onChange={(e) => setCalorieFilter(e.target.value)}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -123,31 +116,16 @@ export default function App() {
                     <CardContent>
                       <p>Time: {exercise.time} minutes</p>
                       <p>Calories: {exercise.expected_calorie_burn}</p>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button className="mt-2">Add to Routine</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add Exercise to Routine</DialogTitle>
-                          </DialogHeader>
-                          <Select onValueChange={(value) => setSelectedDay(value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select day" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {daysOfWeek.map((day) => (
-                                <SelectItem key={day} value={day}>
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button onClick={() => { setSelectedExercise(exercise); addExercise(); }}>
-                            Confirm
-                          </Button>
-                        </DialogContent>
-                      </Dialog>
+                      <p>Steps: {exercise.steps}</p>
+                      <Button
+                        className="mt-2"
+                        onClick={() => {
+                          setSelectedExercise(exercise);
+                          setShowAddDialog(true);
+                        }}
+                      >
+                        Add to Routine
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -155,79 +133,97 @@ export default function App() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="my-exercises">
+        <TabsContent value="myExercises">
           <Card>
             <CardHeader>
               <CardTitle>My Exercises</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th>Exercise</th>
-                      <th>Time</th>
-                      <th>Calories</th>
-                      <th>Day</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exercises.map((exercise, index) => (
-                      <tr key={index}>
-                        <td>{exercise.exercise_name}</td>
-                        <td>{exercise.time}</td>
-                        <td>{exercise.expected_calorie_burn}</td>
-                        <td>{exercise.day_of_week_to_perform}</td>
-                        <td>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="destructive">Remove</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Confirm Removal</DialogTitle>
-                              </DialogHeader>
-                              <p>Are you sure you want to remove this exercise?</p>
-                              <Button onClick={() => removeExercise(index)}>Confirm</Button>
-                            </DialogContent>
-                          </Dialog>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mb-4">
+                <Select onValueChange={(value) => setSortBy(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="time">Time</SelectItem>
+                    <SelectItem value="calorie">Calorie Burn</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="mt-4">
-                <h3 className="text-xl font-bold">Summary</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                  {Object.entries(summary.daily).map(([day, data]) => (
-                    <Card key={day}>
-                      <CardHeader>
-                        <CardTitle>{day}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p>Total Time: {data.time} minutes</p>
-                        <p>Total Calories: {data.calories}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle>Weekly Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p>Total Time: {summary.weekly.time} minutes</p>
-                    <p>Total Calories: {summary.weekly.calories}</p>
+              {sortedExercises.map((exercise, index) => (
+                <Card key={index} className="mb-4">
+                  <CardContent className="flex justify-between items-center">
+                    <div>
+                      <p className="font-bold">{exercise.exercise_name}</p>
+                      <p>Time: {exercise.time} minutes</p>
+                      <p>Calories: {exercise.expected_calorie_burn}</p>
+                      <p>Day: {exercise.day_of_week_to_perform}</p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        setExerciseToDelete(exercise);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      Remove
+                    </Button>
                   </CardContent>
                 </Card>
-              </div>
+              ))}
+              <h2 className="text-xl font-bold mt-4">Daily Summary</h2>
+              {dailySummary.map((summary) => (
+                <p key={summary.day}>
+                  {summary.day}: {summary.totalTime} minutes, {summary.totalCalories} calories
+                </p>
+              ))}
+              <h2 className="text-xl font-bold mt-4">Weekly Summary</h2>
+              <p>Total Time: {weeklySummary.totalTime} minutes</p>
+              <p>Total Calories: {weeklySummary.totalCalories} calories</p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-      <Toaster />
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Exercise to Routine</DialogTitle>
+          </DialogHeader>
+          <Select onValueChange={setSelectedDay}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select day" />
+            </SelectTrigger>
+            <SelectContent>
+              {daysOfWeek.map((day) => (
+                <SelectItem key={day} value={day}>
+                  {day}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button onClick={addExercise}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the exercise from your routine.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => removeExercise(exerciseToDelete)}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

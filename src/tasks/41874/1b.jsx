@@ -1,115 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-const generateDummyStocks = () => {
-  const companies = ['Apple', 'Google', 'Microsoft', 'Amazon', 'Tesla'];
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    company_name: companies[i % companies.length] + ' Inc.',
-    price: (Math.random() * 1000).toFixed(2),
-    change: (Math.random() * 10 - 5).toFixed(2),
-    market_cap: (Math.random() * 1000000000).toFixed(2)
-  }));
-};
+// Dummy data for stocks and mutual funds
+const dummyStocks = [
+  { id: 1, name: "Tech Corp", price: 150.23, change: "+2.34%", marketCap: "1.2T" },
+  // ... 19 more entries
+];
 
-const generateDummyFunds = () => {
-  const funds = ['Growth Fund', 'Value Fund', 'Tech Fund', 'Green Fund'];
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    fund_name: funds[i % funds.length],
-    nav: (Math.random() * 100).toFixed(2),
-    change: (Math.random() * 5 - 2.5).toFixed(2),
-    holdings: Array.from({ length: 5 }, () => ({
-      company: generateDummyStocks()[Math.floor(Math.random() * 20)].company_name,
-      price: (Math.random() * 1000).toFixed(2)
-    }))
-  }));
-};
+const dummyFunds = [
+  { id: 1, name: "Growth Fund", nav: 50.12, change: "+1.2%", holdings: [{company: "Tech Corp", price: 150.23}, /* ... */] },
+  // ... 19 more entries
+];
 
-function StockCard({ stock, onHoldingsClick }) {
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle>{stock.company_name}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>Price: ${stock.price}</p>
-        <p>Change: {stock.change > 0 ? '+' : ''}{stock.change}%</p>
-        <p>Market Cap: ${stock.market_cap}</p>
-        <Button onClick={() => onHoldingsClick(stock)}>View Holdings</Button>
-      </CardContent>
-    </Card>
-  );
-}
+function App() {
+  const [balance, setBalance] = useState(1000);
+  const [portfolio, setPortfolio] = useState([]);
+  const [activeTab, setActiveTab] = useState('stocks');
+  const [filterStock, setFilterStock] = useState('');
+  const [filterFund, setFilterFund] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [selectedFund, setSelectedFund] = useState(null);
 
-function FundCard({ fund }) {
-  const [open, setOpen] = useState(false);
+  const handleBuy = (stock, quantity) => {
+    const cost = stock.price * quantity;
+    if (cost > balance) {
+      alert("Insufficient funds!");
+      return;
+    }
+    setBalance(balance - cost);
+    setPortfolio([...portfolio, { ...stock, quantity }]);
+  };
 
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle>{fund.fund_name}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>NAV: ${fund.nav}</p>
-        <p>Change: {fund.change > 0 ? '+' : ''}{fund.change}%</p>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>View Holdings</Button>
-          </DialogTrigger>
-          <HoldingsDialog holdings={fund.holdings} />
-        </Dialog>
-      </CardContent>
-    </Card>
-  );
-}
+  const handleSell = (stockId, quantity) => {
+    const stockToSell = portfolio.find(s => s.id === stockId);
+    if (stockToSell && stockToSell.quantity >= quantity) {
+      setBalance(balance + (stockToSell.price * quantity));
+      setPortfolio(portfolio.map(s => 
+        s.id === stockId ? { ...s, quantity: s.quantity - quantity } : s
+      ).filter(s => s.quantity > 0));
+    }
+  };
 
-function HoldingsDialog({ holdings }) {
-  const [filter, setFilter] = useState('');
-  const filteredHoldings = holdings.filter(h => 
-    h.company.toLowerCase().includes(filter.toLowerCase()) || 
-    h.price.includes(filter)
-  );
+  const sortedItems = (items, config) => {
+    if (!config.key) return items;
+    return [...items].sort((a, b) => {
+      if (a[config.key] < b[config.key]) return config.direction === 'ascending' ? -1 : 1;
+      if (a[config.key] > b[config.key]) return config.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  };
 
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Fund Holdings</DialogTitle>
-        <Input 
-          placeholder="Filter by company or price"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </DialogHeader>
-      {filteredHoldings.map((h, idx) => (
-        <div key={idx}>
-          <p>{h.company} - ${h.price}</p>
-        </div>
-      ))}
-    </DialogContent>
-  );
-}
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
-export default function App() {
-  const [stocks, setStocks] = useState(generateDummyStocks());
-  const [funds, setFunds] = useState(generateDummyFunds());
-  const [stockFilter, setStockFilter] = useState({ name: '', price: '', marketCap: '' });
-  const [fundFilter, setFundFilter] = useState({ name: '', nav: '' });
+  const filteredStocks = sortedItems(dummyStocks.filter(stock => 
+    stock.name.toLowerCase().includes(filterStock.toLowerCase()) ||
+    stock.price.toString().includes(filterStock) ||
+    stock.marketCap.includes(filterStock)
+  ), sortConfig);
 
-  const filteredStocks = stocks.filter(stock => 
-    stock.company_name.toLowerCase().includes(stockFilter.name.toLowerCase()) &&
-    stock.price.includes(stockFilter.price) &&
-    stock.market_cap.includes(stockFilter.marketCap)
-  );
-
-  const filteredFunds = funds.filter(fund => 
-    fund.fund_name.toLowerCase().includes(fundFilter.name.toLowerCase()) &&
-    fund.nav.includes(fundFilter.nav)
-  );
+  const filteredFunds = sortedItems(dummyFunds.filter(fund => 
+    fund.name.toLowerCase().includes(filterFund.toLowerCase()) ||
+    fund.nav.toString().includes(filterFund)
+  ), sortConfig);
 
   return (
     <div className="container mx-auto p-4">
@@ -117,44 +79,83 @@ export default function App() {
         <TabsList>
           <TabsTrigger value="stocks">Stocks</TabsTrigger>
           <TabsTrigger value="funds">Mutual Funds</TabsTrigger>
+          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
         </TabsList>
         <TabsContent value="stocks">
           <Input 
-            placeholder="Filter by name"
-            value={stockFilter.name}
-            onChange={(e) => setStockFilter({...stockFilter, name: e.target.value})}
+            placeholder="Filter by name, price, or market cap" 
+            value={filterStock} 
+            onChange={(e) => setFilterStock(e.target.value)} 
             className="mb-4"
           />
-          <Input 
-            placeholder="Filter by price"
-            value={stockFilter.price}
-            onChange={(e) => setStockFilter({...stockFilter, price: e.target.value})}
-            className="mb-4"
-          />
-          <Input 
-            placeholder="Filter by market cap"
-            value={stockFilter.marketCap}
-            onChange={(e) => setStockFilter({...stockFilter, marketCap: e.target.value})}
-            className="mb-4"
-          />
-          {filteredStocks.map(stock => <StockCard key={stock.id} stock={stock} onHoldingsClick={() => {}} />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {filteredStocks.map(stock => (
+              <Card key={stock.id}>
+                <CardHeader>
+                  <CardTitle>{stock.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Price: ${stock.price}</p>
+                  <p>Change: {stock.change}</p>
+                  <p>Market Cap: {stock.marketCap}</p>
+                  <Button onClick={() => handleBuy(stock, 1)}>Buy</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
         <TabsContent value="funds">
           <Input 
-            placeholder="Filter by fund name"
-            value={fundFilter.name}
-            onChange={(e) => setFundFilter({...fundFilter, name: e.target.value})}
+            placeholder="Filter by name or NAV" 
+            value={filterFund} 
+            onChange={(e) => setFilterFund(e.target.value)} 
             className="mb-4"
           />
-          <Input 
-            placeholder="Filter by NAV"
-            value={fundFilter.nav}
-            onChange={(e) => setFundFilter({...fundFilter, nav: e.target.value})}
-            className="mb-4"
-          />
-          {filteredFunds.map(fund => <FundCard key={fund.id} fund={fund} />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {filteredFunds.map(fund => (
+              <Card key={fund.id}>
+                <CardHeader>
+                  <CardTitle>{fund.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>NAV: ${fund.nav}</p>
+                  <p>Change: {fund.change}</p>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button>View Holdings</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{fund.name} Holdings</DialogTitle>
+                      </DialogHeader>
+                      {/* Here you would map through fund.holdings with sorting and filtering */}
+                    </DialogContent>
+                  </Dialog>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="portfolio">
+          <div className="grid grid-cols-1 gap-4">
+            {portfolio.map(stock => (
+              <Card key={stock.id}>
+                <CardHeader>
+                  <CardTitle>{stock.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Quantity: {stock.quantity}</p>
+                  <p>Current Price: ${stock.price}</p>
+                  <Button onClick={() => handleSell(stock.id, 1)}>Sell</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
+      <div className="mt-4 text-center">Current Balance: ${balance.toFixed(2)}</div>
     </div>
   );
 }
+
+export default App;

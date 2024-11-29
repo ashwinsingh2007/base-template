@@ -1,199 +1,280 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-  Button, Table, TableHeader, TableBody, TableRow, TableCell, Pagination,
-  Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter 
-} from "@/components/ui";
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const generateDummyVehicles = (count) => {
-  const vehicles = [];
-  for (let i = 0; i < count; i++) {
-    vehicles.push({
-      id: i,
-      licensePlate: `ABC-${Math.floor(Math.random() * 9000) + 1000}`,
-      makeModel: `Car ${Math.floor(Math.random() * 100)}`,
-      color: ['Red', 'Blue', 'Green', 'Yellow', 'Black'][Math.floor(Math.random() * 5)],
-      dailyQuota: Math.floor(Math.random() * 100) + 50,
-      fuelConsumed: Math.floor(Math.random() * 50),
-      lastDispense: new Date().toISOString(),
-      isDispensedToday: Math.random() > 0.5,
-    });
-  }
-  return vehicles;
+// Generate dummy data
+const generateDummyData = () => {
+  const makes = ["Toyota", "Honda", "Ford", "Chevrolet", "Nissan"];
+  const models = ["Camry", "Civic", "F-150", "Silverado", "Altima"];
+  const colors = ["Red", "Blue", "White", "Black", "Silver"];
+
+  return Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1,
+    licensePlate: `ABC${(1000 + i).toString().padStart(4, "0")}`,
+    make: makes[Math.floor(Math.random() * makes.length)],
+    model: models[Math.floor(Math.random() * models.length)],
+    color: colors[Math.floor(Math.random() * colors.length)],
+    dailyFuelQuota: Math.floor(Math.random() * 50) + 20,
+    fuelConsumedToday: 0,
+    fuelDispensedToday: 0,
+    dispenseStatus: "Not Dispensed",
+    dispenseDateTime: null,
+  }));
 };
 
-function VehicleForm({ onSubmit, onCancel, vehicle = {} }) {
-  const [formData, setFormData] = useState(vehicle);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({ ...formData, id: vehicle.id || Date.now() });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input 
-        value={formData.licensePlate || ''} 
-        onChange={(e) => setFormData({...formData, licensePlate: e.target.value})} 
-        placeholder="License Plate" 
-        required 
-      />
-      <Input 
-        value={formData.makeModel || ''} 
-        onChange={(e) => setFormData({...formData, makeModel: e.target.value})} 
-        placeholder="Make and Model" 
-        required 
-      />
-      <Input 
-        value={formData.color || ''} 
-        onChange={(e) => setFormData({...formData, color: e.target.value})} 
-        placeholder="Color" 
-        required 
-      />
-      <Input 
-        type="number" 
-        value={formData.dailyQuota || ''} 
-        onChange={(e) => setFormData({...formData, dailyQuota: Number(e.target.value)})} 
-        placeholder="Daily Fuel Quota" 
-        required 
-      />
-      <div className="flex space-x-4">
-        <Button type="submit">Save</Button>
-        <Button type="button" onClick={onCancel}>Cancel</Button>
-      </div>
-    </form>
-  );
-}
-
-function FuelDispenseModal({ isOpen, onClose, onDispense, vehicle }) {
-  return (
-    <Modal open={isOpen} onOpenChange={onClose}>
-      <ModalContent>
-        <ModalHeader>
-          <ModalTitle>Dispense Fuel</ModalTitle>
-        </ModalHeader>
-        <ModalBody>
-          <p>Dispense fuel for {vehicle.licensePlate}?</p>
-          <p>Daily Quota: {vehicle.dailyQuota} liters</p>
-        </ModalBody>
-        <ModalFooter>
-          <Button onClick={() => { onDispense(vehicle); onClose(); }}>Confirm Dispense</Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  );
-}
-
 export default function App() {
-  const [vehicles, setVehicles] = useState(generateDummyVehicles(50));
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filter, setFilter] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
+  const [vehicles, setVehicles] = useState(generateDummyData());
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({
+    licensePlate: "",
+    make: "",
+    model: "",
+    color: "",
+    dailyFuelQuota: "",
+  });
+  const [isDispenseDialogOpen, setIsDispenseDialogOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [editVehicle, setEditVehicle] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterLicensePlate, setFilterLicensePlate] = useState("");
+  const [filterDispenseStatus, setFilterDispenseStatus] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
 
-  const recordsPerPage = 5;
-  const lastIndex = currentPage * recordsPerPage;
-  const firstIndex = lastIndex - recordsPerPage;
-  const records = vehicles.filter(v => v.licensePlate.includes(filter)).slice(firstIndex, lastIndex);
-  const npage = Math.ceil(vehicles.length / recordsPerPage);
-  const totalFuelDispensed = vehicles.reduce((acc, vehicle) => acc + (vehicle.isDispensedToday ? vehicle.dailyQuota : 0), 0);
+  const itemsPerPage = 5;
 
-  const handleDelete = (id) => {
-    setVehicles(vehicles.filter(v => v.id !== id));
+  // Filter and sort vehicles
+  const filteredVehicles = vehicles
+    .filter((vehicle) =>
+      vehicle.licensePlate.toLowerCase().includes(filterLicensePlate.toLowerCase())
+    )
+    .filter((vehicle) =>
+      filterDispenseStatus ? vehicle.dispenseStatus === filterDispenseStatus : true
+    )
+    .filter((vehicle) =>
+      filterDate
+        ? vehicle.dispenseDateTime &&
+          new Date(vehicle.dispenseDateTime).toDateString() === new Date(filterDate).toDateString()
+        : true
+    )
+    .sort((a, b) => {
+      if (sortColumn === "dispenseDateTime") {
+        return sortDirection === "asc"
+          ? new Date(a.dispenseDateTime || 0) - new Date(b.dispenseDateTime || 0)
+          : new Date(b.dispenseDateTime || 0) - new Date(a.dispenseDateTime || 0);
+      } else if (sortColumn === "dailyFuelQuota") {
+        return sortDirection === "asc"
+          ? a.dailyFuelQuota - b.dailyFuelQuota
+          : b.dailyFuelQuota - a.dailyFuelQuota;
+      }
+      return 0;
+    });
+
+  const pageCount = Math.ceil(filteredVehicles.length / itemsPerPage);
+  const displayedVehicles = filteredVehicles.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalFuelDispensed = vehicles.reduce((sum, vehicle) => sum + vehicle.fuelDispensedToday, 0);
+
+  const handleAddVehicle = () => {
+    setVehicles([...vehicles, { ...newVehicle, id: vehicles.length + 1 }]);
+    setIsAddDialogOpen(false);
+    setNewVehicle({
+      licensePlate: "",
+      make: "",
+      model: "",
+      color: "",
+      dailyFuelQuota: "",
+    });
   };
 
-  const handleDispense = (vehicle) => {
-    setVehicles(vehicles.map(v => v.id === vehicle.id ? {...v, isDispensedToday: true, fuelConsumed: v.dailyQuota, lastDispense: new Date().toISOString()} : v));
+  const handleDispenseFuel = () => {
+    setVehicles(
+      vehicles.map((v) =>
+        v.id === selectedVehicle.id
+          ? {
+              ...v,
+              fuelDispensedToday: v.dailyFuelQuota,
+              dispenseStatus: "Dispensed",
+              dispenseDateTime: new Date().toISOString(),
+            }
+          : v
+      )
+    );
+    setIsDispenseDialogOpen(false);
   };
 
-  const handleEdit = (vehicle) => {
-    setEditVehicle(vehicle);
-  };
-
-  const handleSaveVehicle = (vehicleData) => {
-    if (editVehicle) {
-      setVehicles(vehicles.map(v => v.id === vehicleData.id ? vehicleData : v));
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setVehicles([...vehicles, vehicleData]);
+      setSortColumn(column);
+      setSortDirection("asc");
     }
-    setEditVehicle(null);
   };
 
   return (
     <div className="container mx-auto p-4">
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>Vehicle Fuel Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={() => setEditVehicle({})}>Add Vehicle</Button>
-          {editVehicle && <VehicleForm onSubmit={handleSaveVehicle} onCancel={() => setEditVehicle(null)} vehicle={editVehicle} />}
-        </CardContent>
-      </Card>
+      <h1 className="text-2xl font-bold mb-4">Vehicle Fuel Management</h1>
 
-      <Card className="mb-4">
-        <CardContent>
-          <Input 
-            placeholder="Filter by License Plate" 
-            value={filter} 
-            onChange={(e) => {setFilter(e.target.value); setCurrentPage(1);}} 
-            className="mb-4"
-          />
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableCell>License Plate</TableCell>
-                <TableCell>Fuel Dispensed</TableCell>
-                <TableCell>Daily Quota</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Last Dispense</TableCell>
-                <TableCell>Action</TableCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map(vehicle => (
-                <TableRow key={vehicle.id}>
-                  <TableCell>{vehicle.licensePlate}</TableCell>
-                  <TableCell>{vehicle.fuelConsumed} L</TableCell>
-                  <TableCell>{vehicle.dailyQuota} L</TableCell>
-                  <TableCell>{vehicle.isDispensedToday ? 'Dispensed' : 'Pending'}</TableCell>
-                  <TableCell>{new Date(vehicle.lastDispense).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Button onClick={() => {setSelectedVehicle(vehicle); setModalOpen(true);}} disabled={vehicle.isDispensedToday}>
-                      Dispense
-                    </Button>
-                    <Button onClick={() => handleEdit(vehicle)}>Edit</Button>
-                    <Button onClick={() => handleDelete(vehicle.id)} variant="destructive">Delete</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Pagination 
-            total={npage} 
-            current={currentPage} 
-            onChange={setCurrentPage} 
-            className="mt-4"
-          />
-        </CardContent>
-      </Card>
+      <Button onClick={() => setIsAddDialogOpen(true)} className="mb-4">
+        Add Vehicle
+      </Button>
 
-      <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <Input
+          placeholder="Filter by License Plate"
+          value={filterLicensePlate}
+          onChange={(e) => setFilterLicensePlate(e.target.value)}
+        />
+        <Select value={filterDispenseStatus} onValueChange={setFilterDispenseStatus}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filter by Dispense Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All</SelectItem>
+            <SelectItem value="Dispensed">Dispensed</SelectItem>
+            <SelectItem value="Not Dispensed">Not Dispensed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          type="date"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+        />
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>License Plate</TableHead>
+            <TableHead>Fuel Dispensed Today</TableHead>
+            <TableHead
+              className="cursor-pointer"
+              onClick={() => handleSort("dailyFuelQuota")}
+            >
+              Daily Fuel Quota {sortColumn === "dailyFuelQuota" && (sortDirection === "asc" ? "↑" : "↓")}
+            </TableHead>
+            <TableHead>Dispense Status</TableHead>
+            <TableHead
+              className="cursor-pointer"
+              onClick={() => handleSort("dispenseDateTime")}
+            >
+              Date and Time of Dispense {sortColumn === "dispenseDateTime" && (sortDirection === "asc" ? "↑" : "↓")}
+            </TableHead>
+            <TableHead>Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {displayedVehicles.map((vehicle) => (
+            <TableRow key={vehicle.id}>
+              <TableCell>{vehicle.licensePlate}</TableCell>
+              <TableCell>{vehicle.fuelDispensedToday}</TableCell>
+              <TableCell>{vehicle.dailyFuelQuota}</TableCell>
+              <TableCell>{vehicle.dispenseStatus}</TableCell>
+              <TableCell>{vehicle.dispenseDateTime ? new Date(vehicle.dispenseDateTime).toLocaleString() : "-"}</TableCell>
+              <TableCell>
+                {vehicle.dispenseStatus === "Not Dispensed" && (
+                  <Button
+                    onClick={() => {
+                      setSelectedVehicle(vehicle);
+                      setIsDispenseDialogOpen(true);
+                    }}
+                  >
+                    Dispense Fuel
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex justify-between items-center mt-4">
+        <Button
+          onClick={() => setCurrentPage(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </Button>
+        <span>
+          Page {currentPage} of {pageCount}
+        </span>
+        <Button
+          onClick={() => setCurrentPage(currentPage + 1)}
+          disabled={currentPage === pageCount}
+        >
+          Next
+        </Button>
+      </div>
+
+      <Card className="mt-4">
         <CardHeader>
           <CardTitle>Total Fuel Dispensed Today</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{totalFuelDispensed} liters</p>
+          <p className="text-2xl font-bold">{totalFuelDispensed} liters</p>
         </CardContent>
       </Card>
 
-      <FuelDispenseModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        onDispense={handleDispense}
-        vehicle={selectedVehicle}
-      />
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Vehicle</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="License Plate"
+            value={newVehicle.licensePlate}
+            onChange={(e) => setNewVehicle({ ...newVehicle, licensePlate: e.target.value })}
+          />
+          <Input
+            placeholder="Make"
+            value={newVehicle.make}
+            onChange={(e) => setNewVehicle({ ...newVehicle, make: e.target.value })}
+          />
+          <Input
+            placeholder="Model"
+            value={newVehicle.model}
+            onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
+          />
+          <Input
+            placeholder="Color"
+            value={newVehicle.color}
+            onChange={(e) => setNewVehicle({ ...newVehicle, color: e.target.value })}
+          />
+          <Input
+            placeholder="Daily Fuel Quota"
+            type="number"
+            value={newVehicle.dailyFuelQuota}
+            onChange={(e) => setNewVehicle({ ...newVehicle, dailyFuelQuota: e.target.value })}
+          />
+          <DialogFooter>
+            <Button onClick={handleAddVehicle}>Add Vehicle</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDispenseDialogOpen} onOpenChange={setIsDispenseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dispense Fuel</DialogTitle>
+          </DialogHeader>
+          {selectedVehicle && (
+            <p>
+              Fuel Quota for {selectedVehicle.licensePlate}: {selectedVehicle.dailyFuelQuota} liters
+            </p>
+          )}
+          <DialogFooter>
+            <Button onClick={handleDispenseFuel}>Confirm Dispense</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

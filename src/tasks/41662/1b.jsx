@@ -1,209 +1,214 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Input, 
-  Button, 
-  Select, 
-  SelectItem 
-} from "@/components/ui/input";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const initialData = [
-  { id: 1, date: '2023-05-01', workout: 'Running', calories: 300, start: '07:00', end: '08:00' },
-  { id: 2, date: '2023-05-02', workout: 'Yoga', calories: 150, start: '18:00', end: '19:00' },
+// Sample data
+const sampleData = [
+  { date: "2023-07-01", type: "Running", calories: 300, start: "07:00", end: "08:00" },
+  { date: "2023-07-02", type: "Cycling", calories: 400, start: "18:00", end: "19:30" },
+  // ... (18 more sample data entries)
 ];
 
-function formatTime(start, end) {
-  const diff = (new Date(`1970-01-01T${end}:00`) - new Date(`1970-01-01T${start}:00`)) / 1000 / 60;
-  return `${Math.floor(diff / 60)}h ${diff % 60}m`;
-}
-
 export default function App() {
-  const [workouts, setWorkouts] = useState(initialData);
-  const [form, setForm] = useState({ date: '', workout: '', calories: '', start: '', end: '' });
+  const [workouts, setWorkouts] = useState(sampleData);
+  const [newWorkout, setNewWorkout] = useState({ date: "", type: "", calories: "", start: "", end: "" });
   const [calorieGoal, setCalorieGoal] = useState(2000);
-  const [filter, setFilter] = useState('thisWeek');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [filter, setFilter] = useState("This week");
+  const [sortBy, setSortBy] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
 
-  const addWorkout = () => {
-    if (new Date(form.date) > new Date()) {
-      alert('Cannot add workout for a future date!');
+  // Calculate metrics
+  const currentWeekWorkouts = workouts.filter(w => {
+    const workoutDate = new Date(w.date);
+    const today = new Date();
+    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    return workoutDate >= weekStart;
+  });
+
+  const stepsThisWeek = currentWeekWorkouts.reduce((sum, w) => sum + (w.type === "Running" ? 1000 : 0), 0);
+  const caloriesThisWeek = currentWeekWorkouts.reduce((sum, w) => sum + w.calories, 0);
+  const goalProgress = Math.min((caloriesThisWeek / calorieGoal) * 100, 100).toFixed(2);
+
+  // Handle new workout submission
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (new Date(newWorkout.date) > new Date()) {
+      alert("Cannot add workout for future date");
       return;
     }
-    const newWorkout = { 
-      id: Date.now(), 
-      ...form, 
-      calories: parseInt(form.calories, 10) || 0,
-    };
     setWorkouts([...workouts, newWorkout]);
-    setForm({ date: '', workout: '', calories: '', start: '', end: '' });
+    setNewWorkout({ date: "", type: "", calories: "", start: "", end: "" });
   };
 
-  const filteredWorkouts = useMemo(() => {
-    let result = [...workouts];
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    switch(filter) {
-      case 'thisWeek': 
-        result = result.filter(w => new Date(w.date) >= startOfWeek); 
-        break;
-      case 'lastWeek': 
-        const lastWeekStart = new Date(startOfWeek);
-        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-        result = result.filter(w => new Date(w.date) >= lastWeekStart && new Date(w.date) < startOfWeek);
-        break;
-      case 'thisMonth': 
-        result = result.filter(w => new Date(w.date) >= startOfMonth); 
-        break;
-      case 'lastMonth': 
-        const lastMonth = new Date(startOfMonth);
-        lastMonth.setMonth(lastMonth.getMonth() - 1);
-        result = result.filter(w => new Date(w.date) >= lastMonth && new Date(w.date) < startOfMonth);
-        break;
-      case 'last2Months':
-        const twoMonthsAgo = new Date(startOfMonth);
-        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-        result = result.filter(w => new Date(w.date) >= twoMonthsAgo);
-        break;
-      case 'last3Months':
-        const threeMonthsAgo = new Date(startOfMonth);
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        result = result.filter(w => new Date(w.date) >= threeMonthsAgo);
-        break;
-    }
-
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return result;
-  }, [workouts, filter, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
+  // Handle input changes
+  const handleChange = (e) => {
+    setNewWorkout({ ...newWorkout, [e.target.name]: e.target.value });
   };
 
-  const stepsThisWeek = 10000; // Placeholder value for steps
-  const caloriesBurnedThisWeek = filteredWorkouts.reduce((acc, w) => acc + w.calories, 0);
-  const goalProgress = (caloriesBurnedThisWeek / calorieGoal) * 100;
+  // Filter workouts based on selected filter
+  const filterWorkouts = () => {
+    const today = new Date();
+    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    switch (filter) {
+      case "This week":
+        return workouts.filter(w => new Date(w.date) >= weekStart);
+      case "Last week":
+        const lastWeekStart = new Date(weekStart.setDate(weekStart.getDate() - 7));
+        return workouts.filter(w => new Date(w.date) >= lastWeekStart && new Date(w.date) < weekStart);
+      case "This month":
+        return workouts.filter(w => new Date(w.date) >= monthStart);
+      case "Last month":
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        return workouts.filter(w => new Date(w.date) >= lastMonthStart && new Date(w.date) < monthStart);
+      case "Last 2 months":
+        const twoMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+        return workouts.filter(w => new Date(w.date) >= twoMonthsAgo);
+      case "Last 3 months":
+        const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+        return workouts.filter(w => new Date(w.date) >= threeMonthsAgo);
+      default:
+        return workouts;
+    }
+  };
+
+  // Sort workouts
+  const sortWorkouts = (workouts) => {
+    if (!sortBy) return workouts;
+    return [...workouts].sort((a, b) => {
+      if (sortBy === "date") {
+        return sortOrder === "asc" ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date);
+      } else if (sortBy === "calories") {
+        return sortOrder === "asc" ? a.calories - b.calories : b.calories - a.calories;
+      } else if (sortBy === "timeSpent") {
+        const getMinutes = (start, end) => {
+          const [startHour, startMin] = start.split(":").map(Number);
+          const [endHour, endMin] = end.split(":").map(Number);
+          return (endHour * 60 + endMin) - (startHour * 60 + startMin);
+        };
+        const aTime = getMinutes(a.start, a.end);
+        const bTime = getMinutes(b.start, b.end);
+        return sortOrder === "asc" ? aTime - bTime : bTime - aTime;
+      }
+    });
+  };
+
+  // Handle sorting
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
+  const filteredAndSortedWorkouts = sortWorkouts(filterWorkouts());
 
   return (
     <div className="container mx-auto p-4">
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>Fitness Tracker</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div>Steps walked this week: {stepsThisWeek}</div>
-            <div>Calories burned this week: {caloriesBurnedThisWeek} kCal</div>
-            <div>Goal progress: {goalProgress.toFixed(2)}%</div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <Input 
-              type="date" 
-              value={form.date} 
-              onChange={(e) => setForm({...form, date: e.target.value})} 
-              placeholder="Date" 
-            />
-            <Input 
-              value={form.workout} 
-              onChange={(e) => setForm({...form, workout: e.target.value})} 
-              placeholder="Workout Type" 
-            />
-            <Input 
-              type="number" 
-              value={form.calories} 
-              onChange={(e) => setForm({...form, calories: e.target.value})} 
-              placeholder="Calories Burned" 
-            />
-            <Input 
-              type="time" 
-              value={form.start} 
-              onChange={(e) => setForm({...form, start: e.target.value})} 
-              placeholder="Start Time" 
-            />
-            <Input 
-              type="time" 
-              value={form.end} 
-              onChange={(e) => setForm({...form, end: e.target.value})} 
-              placeholder="End Time" 
-            />
-            <Button onClick={addWorkout}>Add Workout</Button>
-          </div>
-          <div className="mb-4">
-            <label>Calorie Goal for this Week: </label>
-            <Input 
-              type="number" 
-              value={calorieGoal} 
-              onChange={(e) => setCalorieGoal(Number(e.target.value))} 
-              className="w-40"
-            />
-          </div>
-          <Select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <SelectItem value="thisWeek">This Week</SelectItem>
-            <SelectItem value="lastWeek">Last Week</SelectItem>
-            <SelectItem value="thisMonth">This Month</SelectItem>
-            <SelectItem value="lastMonth">Last Month</SelectItem>
-            <SelectItem value="last2Months">Last 2 Months</SelectItem>
-            <SelectItem value="last3Months">Last 3 Months</SelectItem>
-          </Select>
-        </CardContent>
-      </Card>
+      <h1 className="text-3xl font-bold mb-4">Fitness Tracker</h1>
+      
+      {/* Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Steps This Week</CardTitle>
+          </CardHeader>
+          <CardContent>{stepsThisWeek}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Calories Burned This Week</CardTitle>
+          </CardHeader>
+          <CardContent>{caloriesThisWeek} kCal</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Goal Progress</CardTitle>
+          </CardHeader>
+          <CardContent>{goalProgress}%</CardContent>
+        </Card>
+      </div>
 
-      <Card>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>SNo.</TableHead>
-                <TableHead onClick={() => requestSort('date')}>Date</TableHead>
-                <TableHead onClick={() => requestSort('workout')}>Workout Type</TableHead>
-                <TableHead onClick={() => requestSort('calories')}>Calories Burnt (kCal)</TableHead>
-                <TableHead onClick={() => requestSort('timeSpent')}>Time Spent</TableHead>
-                <TableHead>Start Time</TableHead>
-                <TableHead>End Time</TableHead>
+      {/* Calorie Goal Input */}
+      <div className="mb-4">
+        <Input
+          type="number"
+          placeholder="Set Calorie Goal for the Week"
+          value={calorieGoal}
+          onChange={(e) => setCalorieGoal(Number(e.target.value))}
+          className="w-full sm:w-auto"
+        />
+      </div>
+
+      {/* New Workout Form */}
+      <form onSubmit={handleSubmit} className="mb-4 space-y-2">
+        <Input type="date" name="date" value={newWorkout.date} onChange={handleChange} required />
+        <Input type="text" name="type" placeholder="Workout Type" value={newWorkout.type} onChange={handleChange} required />
+        <Input type="number" name="calories" placeholder="Calories Burned" value={newWorkout.calories} onChange={handleChange} required />
+        <Input type="time" name="start" value={newWorkout.start} onChange={handleChange} required />
+        <Input type="time" name="end" value={newWorkout.end} onChange={handleChange} required />
+        <Button type="submit">Add Workout</Button>
+      </form>
+
+      {/* Filter */}
+      <Select value={filter} onValueChange={setFilter}>
+        <SelectTrigger className="w-full sm:w-[180px] mb-4">
+          <SelectValue placeholder="Filter" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="This week">This week</SelectItem>
+          <SelectItem value="Last week">Last week</SelectItem>
+          <SelectItem value="This month">This month</SelectItem>
+          <SelectItem value="Last month">Last month</SelectItem>
+          <SelectItem value="Last 2 months">Last 2 months</SelectItem>
+          <SelectItem value="Last 3 months">Last 3 months</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Workout Table */}
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>S.No.</TableHead>
+              <TableHead onClick={() => handleSort("date")} className="cursor-pointer">Date</TableHead>
+              <TableHead>Workout Type</TableHead>
+              <TableHead onClick={() => handleSort("calories")} className="cursor-pointer">Calories Burned (kCal)</TableHead>
+              <TableHead onClick={() => handleSort("timeSpent")} className="cursor-pointer">Time Spent</TableHead>
+              <TableHead>Start Time</TableHead>
+              <TableHead>End Time</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedWorkouts.map((workout, index) => (
+              <TableRow key={index}>
+                <TableCell>{index + 1}</TableCell>
+                <TableCell>{workout.date}</TableCell>
+                <TableCell>{workout.type}</TableCell>
+                <TableCell>{workout.calories}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const [startHour, startMin] = workout.start.split(":").map(Number);
+                    const [endHour, endMin] = workout.end.split(":").map(Number);
+                    const diffMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+                    const hours = Math.floor(diffMinutes / 60);
+                    const minutes = diffMinutes % 60;
+                    return `${hours}h ${minutes}m`;
+                  })()}
+                </TableCell>
+                <TableCell>{workout.start}</TableCell>
+                <TableCell>{workout.end}</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredWorkouts.map((workout, index) => (
-                <TableRow key={workout.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{workout.date}</TableCell>
-                  <TableCell>{workout.workout}</TableCell>
-                  <TableCell>{workout.calories}</TableCell>
-                  <TableCell>{formatTime(workout.start, workout.end)}</TableCell>
-                  <TableCell>{workout.start}</TableCell>
-                  <TableCell>{workout.end}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

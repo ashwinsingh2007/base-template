@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+// Import necessary UI components for building the interface
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,41 +9,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-const sampleTrains = [
-  {
-    id: 1,
-    name: "Express 101",
-    date: "2023-07-01",
-    totalSeats: 100,
-    availableSeats: 50,
-    bookedSeats: 50,
-    price: 50,
-    travelTime: 120,
-    source: "New York",
-    destination: "Boston",
-  },
-  {
-    id: 2,
-    name: "Cityline Express",
-    date: "2023-07-02",
-    totalSeats: 120,
-    availableSeats: 80,
-    bookedSeats: 40,
-    price: 60,
-    travelTime: 150,
-    source: "Boston",
-    destination: "Chicago",
-  },
-  // Add 18 more sample trains...
-];
-
+// Sample train data for demonstration purposes
+const sampleTrains = Array.from({ length: 20 }, (_, i) => ({
+    id: i + 1,
+    name: `Train ${i + 1}`, // Unique name for each train
+    date: `2023-07-${String((i % 31) + 1).padStart(2, "0")}`, // Dates distributed over July
+    totalSeats: 100 + i * 10, // Increasing seat count for each train
+    availableSeats: 50 + i, // Increasing available seats for variety
+    bookedSeats: 50 - i, // Decreasing booked seats for variety
+    price: 50 + i * 5, // Incremental pricing for each train
+    travelTime: 100 + i * 10, // Incremental travel time
+    source: `City ${i % 5 + 1}`, // Rotate between 5 source cities
+    destination: `City ${i % 5 + 2}`, // Rotate between 5 destination cities
+  }));
+  
+// BookingForm component to handle booking details input
 const BookingForm = ({ train, onBook, onClose }) => {
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [address, setAddress] = useState("");
-  const [isSenior, setIsSenior] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [name, setName] = useState(""); // Passenger's name
+  const [age, setAge] = useState(""); // Passenger's age
+  const [address, setAddress] = useState(""); // Passenger's address
+  const [isSenior, setIsSenior] = useState(false); // Senior citizen status
+  const [quantity, setQuantity] = useState(1); // Number of tickets to book
 
+  // Handle form submission for booking
   const handleSubmit = (e) => {
     e.preventDefault();
     onBook({ name, age, address, isSenior, quantity, trainId: train.id, date: train.date });
@@ -51,6 +40,7 @@ const BookingForm = ({ train, onBook, onClose }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Input fields for passenger details */}
       <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
       <Input type="number" placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)} required />
       <Input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} required />
@@ -62,7 +52,7 @@ const BookingForm = ({ train, onBook, onClose }) => {
         type="number"
         placeholder="Quantity"
         min="1"
-        max={train.availableSeats}
+        max={train.availableSeats} // Limit quantity to available seats
         value={quantity}
         onChange={(e) => setQuantity(parseInt(e.target.value))}
         required
@@ -72,20 +62,23 @@ const BookingForm = ({ train, onBook, onClose }) => {
   );
 };
 
+// Main App component
 export default function App() {
-  const [trains, setTrains] = useState(sampleTrains);
-  const [filteredTrains, setFilteredTrains] = useState(trains);
-  const [bookings, setBookings] = useState([]);
-  const [balance, setBalance] = useState(10000);
-  const [sortColumn, setSortColumn] = useState(null);
-  const [sortOrder, setSortOrder] = useState("asc");
-  const [sourceFilter, setSourceFilter] = useState("");
-  const [destinationFilter, setDestinationFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [nameFilter, setNameFilter] = useState("");
-  const [selectedBookings, setSelectedBookings] = useState([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // State management for trains, bookings, filters, and UI interactions
+  const [trains, setTrains] = useState(sampleTrains); // All train data
+  const [filteredTrains, setFilteredTrains] = useState(trains); // Filtered train data
+  const [bookings, setBookings] = useState([]); // User's bookings
+  const [balance, setBalance] = useState(10000); // User's account balance
+  const [sortColumn, setSortColumn] = useState(null); // Column to sort by
+  const [sortOrder, setSortOrder] = useState("asc"); // Sorting order
+  const [sourceFilter, setSourceFilter] = useState(""); // Source filter
+  const [destinationFilter, setDestinationFilter] = useState(""); // Destination filter
+  const [dateFilter, setDateFilter] = useState(""); // Date filter
+  const [nameFilter, setNameFilter] = useState(""); // Name filter for bookings
+  const [selectedBookings, setSelectedBookings] = useState([]); // Selected bookings for cancellation
+  const [dialogOpen, setDialogOpen] = useState(false); // Dialog open state
 
+  // Filter trains based on selected filters
   useEffect(() => {
     let filtered = trains;
     if (sourceFilter) filtered = filtered.filter((t) => t.source === sourceFilter);
@@ -94,6 +87,7 @@ export default function App() {
     setFilteredTrains(filtered);
   }, [trains, sourceFilter, destinationFilter, dateFilter]);
 
+  // Handle sorting of train data
   const handleSort = (column) => {
     if (sortColumn === column) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -109,12 +103,13 @@ export default function App() {
     setFilteredTrains(sorted);
   };
 
+  // Handle new booking logic
   const handleBook = (bookingData) => {
     const train = trains.find((t) => t.id === bookingData.trainId);
-    const totalPrice = train.price * bookingData.quantity * (bookingData.isSenior ? 0.8 : 1);
+    const totalPrice = train.price * bookingData.quantity * (bookingData.isSenior ? 0.8 : 1); // Apply discount for seniors
     if (balance >= totalPrice && train.availableSeats >= bookingData.quantity) {
-      setBalance(balance - totalPrice);
-      setBookings([...bookings, { ...bookingData, price: totalPrice }]);
+      setBalance(balance - totalPrice); // Deduct balance
+      setBookings([...bookings, { ...bookingData, price: totalPrice }]); // Add booking
       setTrains(
         trains.map((t) =>
           t.id === train.id
@@ -127,13 +122,14 @@ export default function App() {
         )
       );
     } else {
-      alert("Booking failed. Insufficient balance or seats.");
+      alert("Booking failed. Insufficient balance or seats."); // Alert on failure
     }
   };
 
+  // Handle booking cancellation
   const handleCancel = (bookingToCancel) => {
-    setBalance(balance + bookingToCancel.price);
-    setBookings(bookings.filter((b) => b !== bookingToCancel));
+    setBalance(balance + bookingToCancel.price); // Refund balance
+    setBookings(bookings.filter((b) => b !== bookingToCancel)); // Remove booking
     setTrains(
       trains.map((t) =>
         t.id === bookingToCancel.trainId
@@ -147,26 +143,31 @@ export default function App() {
     );
   };
 
+  // Handle multiple bookings cancellation
   const handleMultiCancel = () => {
-    selectedBookings.forEach(handleCancel);
-    setSelectedBookings([]);
+    selectedBookings.forEach(handleCancel); // Cancel selected bookings
+    setSelectedBookings([]); // Clear selection
   };
 
   return (
     <div className="container mx-auto p-4">
+      {/* App title and balance display */}
       <h1 className="text-3xl font-bold mb-4">Train Booking System</h1>
       <p className="mb-4">Balance: ${balance}</p>
+      {/* Tabs for switching between trains and bookings views */}
       <Tabs defaultValue="trains">
         <TabsList>
           <TabsTrigger value="trains">Trains</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
         </TabsList>
         <TabsContent value="trains">
+          {/* Train details table */}
           <Card>
             <CardHeader>
               <CardTitle>Available Trains</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filters for trains */}
               <div className="flex space-x-2 mb-4">
                 <Select onValueChange={setSourceFilter}>
                   <SelectTrigger>
@@ -194,6 +195,7 @@ export default function App() {
                 </Select>
                 <Input type="date" placeholder="Date" onChange={(e) => setDateFilter(e.target.value)} />
               </div>
+              {/* Train list table */}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -244,11 +246,13 @@ export default function App() {
           </Card>
         </TabsContent>
         <TabsContent value="bookings">
+          {/* Bookings list */}
           <Card>
             <CardHeader>
               <CardTitle>Your Bookings</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filters for bookings */}
               <div className="flex space-x-2 mb-4">
                 <Input type="date" placeholder="Filter by Date" onChange={(e) => setDateFilter(e.target.value)} />
                 <Input placeholder="Filter by Name" onChange={(e) => setNameFilter(e.target.value)} />
@@ -256,6 +260,7 @@ export default function App() {
               <Button onClick={handleMultiCancel} disabled={selectedBookings.length === 0}>
                 Cancel Selected
               </Button>
+              {/* Bookings table */}
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -1,145 +1,167 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-function App() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState('month');
-  const [meetings, setMeetings] = useState(initialMeetings);
+const dummyMeetings = [
+  { id: 1, title: "Team Sync", date: new Date(2024, 11, 5, 10, 0), description: "Weekly team sync meeting" },
+  { id: 2, title: "Client Call", date: new Date(2024, 11, 10, 14, 0), description: "Discussion with client about project progress" },
+  { id: 3, title: "Product Demo", date: new Date(2024, 11, 15, 11, 0), description: "Showcase new features to stakeholders" },
+  { id: 4, title: "Strategy Planning", date: new Date(2024, 11, 20, 9, 0), description: "Quarterly strategy planning session" },
+  { id: 5, title: "Year-end Review", date: new Date(2024, 11, 30, 15, 0), description: "Annual performance review" },
+];
+
+export default function App() {
+  const [date, setDate] = useState(new Date());
+  const [view, setView] = useState("month");
+  const [meetings, setMeetings] = useState(dummyMeetings);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', date: new Date(), time: '' });
+  const [isAddMeetingOpen, setIsAddMeetingOpen] = useState(false);
+  const [newMeeting, setNewMeeting] = useState({ title: "", date: new Date(), description: "" });
 
-  const daysInMonth = eachDayOfInterval({
-    start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate)
-  });
+  const handleDateChange = (newDate) => {
+    setDate(newDate);
+  };
 
-  const daysInWeek = eachDayOfInterval({
-    start: startOfWeek(currentDate),
-    end: endOfWeek(currentDate)
-  });
+  const handleViewChange = (newView) => {
+    setView(newView);
+  };
 
-  function handleDateChange(date) {
-    setCurrentDate(date);
-    if (view === 'week') {
-      setCurrentDate(startOfWeek(date));
-    }
-  }
+  const handleAddMeeting = () => {
+    setMeetings([...meetings, { ...newMeeting, id: meetings.length + 1 }]);
+    setIsAddMeetingOpen(false);
+    setNewMeeting({ title: "", date: new Date(), description: "" });
+  };
 
-  function openModalForAdd() {
-    setForm({ ...form, date: currentDate });
-    setIsModalOpen(true);
-  }
-
-  function openModalForEdit(meeting) {
-    setSelectedMeeting(meeting);
-    setForm({ 
-      title: meeting.title, 
-      description: meeting.description, 
-      date: meeting.date, 
-      time: meeting.time 
-    });
-    setIsModalOpen(true);
-  }
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    const newMeeting = { ...form, date: new Date(form.date) };
-    if (selectedMeeting) {
-      setMeetings(meetings.map(m => m === selectedMeeting ? newMeeting : m));
-    } else {
-      setMeetings([...meetings, newMeeting]);
-    }
-    setIsModalOpen(false);
-  }
-
-  function deleteMeeting() {
-    setMeetings(meetings.filter(m => m !== selectedMeeting));
-    setIsModalOpen(false);
+  const handleDeleteMeeting = (id) => {
+    setMeetings(meetings.filter((meeting) => meeting.id !== id));
     setSelectedMeeting(null);
-  }
+  };
 
-  return (
-    <div className="p-4 sm:p-8">
-      <div className="flex justify-between mb-4">
-        <Button onClick={() => handleDateChange(view === 'month' ? subMonths(currentDate, 1) : subMonths(currentDate, 1))}>Previous</Button>
-        <Button onClick={() => handleDateChange(new Date())}>Today</Button>
-        <Button onClick={() => handleDateChange(view === 'month' ? addMonths(currentDate, 1) : addMonths(currentDate, 1))}>Next</Button>
-      </div>
-      <Button onClick={() => setView(view === 'month' ? 'week' : 'month')}>{view === 'month' ? 'Week View' : 'Month View'}</Button>
-      <div className="grid grid-cols-7 gap-2 mt-4">
-        {(view === 'month' ? daysInMonth : daysInWeek).map(day => (
-          <Card key={day.toISOString()} className="min-h-[100px]">
-            <CardHeader className="p-2">
-              <CardTitle className={`${isSameDay(day, new Date()) ? 'text-blue-500' : ''}`}>
-                {format(day, 'd')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 text-xs">
-              {meetings.filter(meeting => isSameDay(meeting.date, day)).map(meeting => (
-                <div key={meeting.title} onClick={() => openModalForEdit(meeting)} className="cursor-pointer hover:bg-gray-100 p-1 rounded">
-                  {meeting.time} - {meeting.title}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+  const renderCalendar = () => {
+    return (
+      <Calendar
+        mode={view}
+        selected={date}
+        onSelect={handleDateChange}
+        className="rounded-md border"
+      />
+    );
+  };
+
+  const renderMeetings = () => {
+    const dayMeetings = meetings.filter(
+      (meeting) => meeting.date.toDateString() === date.toDateString()
+    );
+
+    return (
+      <div className="mt-4">
+        <h2 className="text-lg font-semibold mb-2">Meetings for {date.toDateString()}</h2>
+        {dayMeetings.map((meeting) => (
+          <div
+            key={meeting.id}
+            className="p-2 mb-2 bg-gray-100 rounded cursor-pointer"
+            onClick={() => setSelectedMeeting(meeting)}
+          >
+            <h3 className="font-medium">{meeting.title}</h3>
+            <p className="text-sm text-gray-600">{meeting.date.toLocaleTimeString()}</p>
+          </div>
         ))}
       </div>
-      <Button onClick={openModalForAdd} className="mt-4">Add Meeting</Button>
+    );
+  };
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Calendar App</h1>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <div className="flex justify-between mb-4">
+            <Button onClick={() => handleDateChange(new Date())}>Today</Button>
+            <div>
+              <Button onClick={() => handleViewChange("month")}>Month</Button>
+              <Button onClick={() => handleViewChange("week")}>Week</Button>
+            </div>
+          </div>
+          {renderCalendar()}
+        </div>
+        <div className="flex-1">
+          {renderMeetings()}
+          <Button className="mt-4" onClick={() => setIsAddMeetingOpen(true)}>
+            Add Meeting
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={isAddMeetingOpen} onOpenChange={setIsAddMeetingOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedMeeting ? 'Edit Meeting' : 'Add Meeting'}</DialogTitle>
+            <DialogTitle>Add New Meeting</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <Input 
-              type="text" 
-              value={form.title} 
-              onChange={e => setForm({...form, title: e.target.value})} 
-              placeholder="Title" 
-              required 
-            />
-            <Textarea 
-              value={form.description} 
-              onChange={e => setForm({...form, description: e.target.value})} 
-              placeholder="Description" 
-            />
-            <Input 
-              type="date" 
-              value={format(form.date, 'yyyy-MM-dd')} 
-              onChange={e => setForm({...form, date: e.target.value})} 
-              required 
-            />
-            <Input 
-              type="time" 
-              value={form.time} 
-              onChange={e => setForm({...form, time: e.target.value})} 
-              required 
-            />
-            <Button type="submit">Save</Button>
-            {selectedMeeting && 
-              <Button onClick={deleteMeeting} type="button" className="ml-2 bg-red-500 hover:bg-red-600">
-                Delete
-              </Button>}
-          </form>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                Title
+              </Label>
+              <Input
+                id="title"
+                value={newMeeting.title}
+                onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="date" className="text-right">
+                Date
+              </Label>
+              <Input
+                id="date"
+                type="datetime-local"
+                value={newMeeting.date.toISOString().slice(0, 16)}
+                onChange={(e) => setNewMeeting({ ...newMeeting, date: new Date(e.target.value) })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="description"
+                value={newMeeting.description}
+                onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAddMeeting}>Add Meeting</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Popover open={!!selectedMeeting} onOpenChange={() => setSelectedMeeting(null)}>
+        <PopoverContent className="w-80">
+          {selectedMeeting && (
+            <div>
+              <h3 className="font-semibold">{selectedMeeting.title}</h3>
+              <p className="text-sm text-gray-600">{selectedMeeting.date.toLocaleString()}</p>
+              <p className="mt-2">{selectedMeeting.description}</p>
+              <Button
+                className="mt-4"
+                variant="destructive"
+                onClick={() => handleDeleteMeeting(selectedMeeting.id)}
+              >
+                Delete Meeting
+              </Button>
+            </div>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
-
-const initialMeetings = [
-  { title: 'Morning Standup', description: 'Daily team sync', date: new Date(), time: '09:00' },
-  { title: 'Client Call', description: 'Discuss project progress', date: new Date(), time: '14:30' },
-  { title: 'Lunch Break', description: '', date: new Date(), time: '12:00' },
-  { title: 'Code Review', description: 'Review pull requests', date: new Date(new Date().setDate(new Date().getDate() + 1)), time: '16:00' },
-  { title: 'Gym Session', description: 'Cardio and weights', date: new Date(new Date().setDate(new Date().getDate() + 2)), time: '18:00' },
-];
-
-export default App;

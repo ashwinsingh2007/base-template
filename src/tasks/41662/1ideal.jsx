@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 // Generate 20 dummy data entries
 const sampleData = Array.from({ length: 20 }, (_, i) => {
-  const date = new Date(2023, 6, i + 1); // July 2023
+  const date = new Date(2024, 11, i + 1); // December 2024
   const type = i % 2 === 0 ? "Running" : "Cycling";
   const calories = Math.floor(Math.random() * 500) + 100; // Random calories between 100 and 600
   const startHour = Math.floor(Math.random() * 12) + 6; // Random start hour between 6 and 18
@@ -24,11 +25,12 @@ const sampleData = Array.from({ length: 20 }, (_, i) => {
   };
 });
 
+
 export default function App() {
   const [workouts, setWorkouts] = useState(sampleData);
   const [newWorkout, setNewWorkout] = useState({ date: "", type: "", calories: "", start: "", end: "" });
   const [calorieGoal, setCalorieGoal] = useState(2000);
-  const [filter, setFilter] = useState("This week");
+  const [filter, setFilter] = useState("Last 3 months");
   const [sortBy, setSortBy] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
 
@@ -126,13 +128,7 @@ export default function App() {
       <h1 className="text-3xl font-bold mb-4">Fitness Tracker</h1>
       
       {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Steps This Week</CardTitle>
-          </CardHeader>
-          <CardContent>{stepsThisWeek}</CardContent>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <Card>
           <CardHeader>
             <CardTitle>Calories Burned This Week</CardTitle>
@@ -224,3 +220,4 @@ export default function App() {
     </div>
   );
 }
+

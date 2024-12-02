@@ -1,167 +1,134 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, set, getDate, getMonth, getYear, startOfWeek, endOfWeek } from 'date-fns';
 
+// Utility function to generate days for the calendar
+function generateDays(currentDate) {
+  const start = startOfMonth(currentDate);
+  const end = endOfMonth(currentDate);
+  return eachDayOfInterval({ start, end });
+}
+
+// Dummy meetings
 const dummyMeetings = [
-  { id: 1, title: "Team Sync", date: new Date(2024, 11, 5, 10, 0), description: "Weekly team sync meeting" },
-  { id: 2, title: "Client Call", date: new Date(2024, 11, 10, 14, 0), description: "Discussion with client about project progress" },
-  { id: 3, title: "Product Demo", date: new Date(2024, 11, 15, 11, 0), description: "Showcase new features to stakeholders" },
-  { id: 4, title: "Strategy Planning", date: new Date(2024, 11, 20, 9, 0), description: "Quarterly strategy planning session" },
-  { id: 5, title: "Year-end Review", date: new Date(2024, 11, 30, 15, 0), description: "Annual performance review" },
+  { id: 1, title: "Project Kickoff", date: new Date(2024, 11, 5, 10, 0), description: "Start of the new project phase." },
+  { id: 2, title: "Team Sync", date: new Date(2024, 11, 12, 15, 30), description: "Weekly team synchronization meeting." },
+  { id: 3, title: "Client Review", date: new Date(2024, 11, 18, 9, 0), description: "Review progress with the client." },
+  { id: 4, title: "Design Workshop", date: new Date(2024, 11, 22, 14, 0), description: "Workshop for the new UI design." },
+  { id: 5, title: "Release Planning", date: new Date(2024, 11, 30, 11, 0), description: "Plan for the next release cycle." },
 ];
 
-export default function App() {
-  const [date, setDate] = useState(new Date());
-  const [view, setView] = useState("month");
+function App() {
+  const [currentDate, setCurrentDate] = useState(new Date(2024, 11, 1));
+  const [view, setView] = useState('month');
   const [meetings, setMeetings] = useState(dummyMeetings);
+  const [modalOpen, setModalOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
-  const [isAddMeetingOpen, setIsAddMeetingOpen] = useState(false);
-  const [newMeeting, setNewMeeting] = useState({ title: "", date: new Date(), description: "" });
+  const [newMeeting, setNewMeeting] = useState({ title: '', date: new Date(), description: '' });
 
-  const handleDateChange = (newDate) => {
-    setDate(newDate);
+  const days = useMemo(() => {
+    return view === 'month' ? generateDays(currentDate) : eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) });
+  }, [currentDate, view]);
+
+  const handleDateChange = (date) => {
+    setCurrentDate(date);
   };
 
-  const handleViewChange = (newView) => {
-    setView(newView);
+  const handleMeetingClick = (meeting) => {
+    setSelectedMeeting(meeting);
+    setModalOpen(true);
   };
 
-  const handleAddMeeting = () => {
-    setMeetings([...meetings, { ...newMeeting, id: meetings.length + 1 }]);
-    setIsAddMeetingOpen(false);
-    setNewMeeting({ title: "", date: new Date(), description: "" });
+  const handleNewMeeting = () => {
+    setNewMeeting({ title: '', date: new Date(), description: '' });
+    setModalOpen(true);
   };
 
-  const handleDeleteMeeting = (id) => {
-    setMeetings(meetings.filter((meeting) => meeting.id !== id));
-    setSelectedMeeting(null);
+  const saveMeeting = () => {
+    if (selectedMeeting) {
+      const updatedMeetings = meetings.map(m => m.id === selectedMeeting.id ? { ...newMeeting, id: m.id } : m);
+      setMeetings(updatedMeetings);
+    } else {
+      setMeetings([...meetings, { ...newMeeting, id: Date.now() }]);
+    }
+    setModalOpen(false);
   };
 
-  const renderCalendar = () => {
-    return (
-      <Calendar
-        mode={view}
-        selected={date}
-        onSelect={handleDateChange}
-        className="rounded-md border"
-      />
-    );
-  };
-
-  const renderMeetings = () => {
-    const dayMeetings = meetings.filter(
-      (meeting) => meeting.date.toDateString() === date.toDateString()
-    );
-
-    return (
-      <div className="mt-4">
-        <h2 className="text-lg font-semibold mb-2">Meetings for {date.toDateString()}</h2>
-        {dayMeetings.map((meeting) => (
-          <div
-            key={meeting.id}
-            className="p-2 mb-2 bg-gray-100 rounded cursor-pointer"
-            onClick={() => setSelectedMeeting(meeting)}
-          >
-            <h3 className="font-medium">{meeting.title}</h3>
-            <p className="text-sm text-gray-600">{meeting.date.toLocaleTimeString()}</p>
-          </div>
-        ))}
-      </div>
-    );
+  const deleteMeeting = () => {
+    setMeetings(meetings.filter(m => m.id !== selectedMeeting.id));
+    setModalOpen(false);
   };
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Calendar App</h1>
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="flex justify-between mb-4">
-            <Button onClick={() => handleDateChange(new Date())}>Today</Button>
-            <div>
-              <Button onClick={() => handleViewChange("month")}>Month</Button>
-              <Button onClick={() => handleViewChange("week")}>Week</Button>
-            </div>
-          </div>
-          {renderCalendar()}
-        </div>
-        <div className="flex-1">
-          {renderMeetings()}
-          <Button className="mt-4" onClick={() => setIsAddMeetingOpen(true)}>
-            Add Meeting
+      <Card>
+        <CardHeader>
+          <CardTitle>Calendar</CardTitle>
+          <Button onClick={() => setView(view === 'month' ? 'week' : 'month')}>
+            Toggle {view === 'month' ? 'Week' : 'Month'} View
           </Button>
-        </div>
-      </div>
-
-      <Dialog open={isAddMeetingOpen} onOpenChange={setIsAddMeetingOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Meeting</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">
-                Title
-              </Label>
-              <Input
-                id="title"
-                value={newMeeting.title}
-                onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">
-                Date
-              </Label>
-              <Input
-                id="date"
-                type="datetime-local"
-                value={newMeeting.date.toISOString().slice(0, 16)}
-                onChange={(e) => setNewMeeting({ ...newMeeting, date: new Date(e.target.value) })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
-              <Input
-                id="description"
-                value={newMeeting.description}
-                onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
+          <Button onClick={handleNewMeeting}>Add Meeting</Button>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between mb-4">
+            <Button onClick={() => setCurrentDate(subMonths(currentDate, 1))}>Previous</Button>
+            <Input 
+              type="date" 
+              value={format(currentDate, 'yyyy-MM-dd')} 
+              onChange={(e) => handleDateChange(new Date(e.target.value))} 
+              className="w-1/3"
+            />
+            <Button onClick={() => setCurrentDate(addMonths(currentDate, 1))}>Next</Button>
+            <Button onClick={() => setCurrentDate(new Date())}>Today</Button>
           </div>
-          <DialogFooter>
-            <Button onClick={handleAddMeeting}>Add Meeting</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Popover open={!!selectedMeeting} onOpenChange={() => setSelectedMeeting(null)}>
-        <PopoverContent className="w-80">
-          {selectedMeeting && (
-            <div>
-              <h3 className="font-semibold">{selectedMeeting.title}</h3>
-              <p className="text-sm text-gray-600">{selectedMeeting.date.toLocaleString()}</p>
-              <p className="mt-2">{selectedMeeting.description}</p>
-              <Button
-                className="mt-4"
-                variant="destructive"
-                onClick={() => handleDeleteMeeting(selectedMeeting.id)}
+          <div className="grid grid-cols-7 gap-2">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => 
+              <div key={day} className="font-bold text-center">{day}</div>
+            )}
+            {days.map(day => (
+              <div 
+                key={day.toString()} 
+                className={`text-center p-2 border rounded ${getDate(day) === getDate(new Date()) ? 'bg-blue-500 text-white' : ''} ${getMonth(day) !== getMonth(currentDate) ? 'text-gray-400' : ''}`}
+                onClick={() => handleDateChange(set(day, { hours: 12 }))} // Set to midday to avoid timezone issues
               >
-                Delete Meeting
-              </Button>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
+                {getDate(day)}
+                {meetings.filter(m => getDate(m.date) === getDate(day)).map(m => (
+                  <div key={m.id} onClick={(e) => {e.stopPropagation(); handleMeetingClick(m);}} className="text-xs bg-yellow-200 mt-1 p-1 rounded cursor-pointer">
+                    {m.title}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Modal open={modalOpen} onOpenChange={setModalOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>{selectedMeeting ? 'Edit Meeting' : 'New Meeting'}</ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <Label htmlFor="title">Title</Label>
+            <Input id="title" value={newMeeting.title} onChange={e => setNewMeeting({...newMeeting, title: e.target.value})} />
+            <Label htmlFor="date">Date & Time</Label>
+            <Input id="date" type="datetime-local" value={format(newMeeting.date, 'yyyy-MM-dd\'T\'HH:mm')} onChange={e => setNewMeeting({...newMeeting, date: new Date(e.target.value)})} />
+            <Label htmlFor="description">Description</Label>
+            <Input id="description" value={newMeeting.description} onChange={e => setNewMeeting({...newMeeting, description: e.target.value})} />
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={saveMeeting}>Save</Button>
+            {selectedMeeting && <Button onClick={deleteMeeting} variant="destructive">Delete</Button>}
+            <Button onClick={() => setModalOpen(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
+
+export default App;

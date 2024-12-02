@@ -20,6 +20,7 @@ import {
   subMonths,
   startOfWeek,
   endOfWeek,
+  getWeek,
 } from "date-fns";
 
 function App() {
@@ -33,7 +34,7 @@ function App() {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    date: new Date(),
+    date: new Date().toISOString().split("T")[0], // Default to today's date in "yyyy-MM-dd".
     time: "",
   }); // Holds the form data for adding/editing meetings.
 
@@ -58,8 +59,8 @@ function App() {
   }
 
   // **Function to open Add Meeting modal**
-  function openModalForAdd() {
-    setForm({ ...form, date: currentDate }); // Prepopulate the form's date with the currently selected date.
+  function openModalForAdd(day) {
+    setForm({ title: "", description: "", date: format(day, "yyyy-MM-dd"), time: "" });
     setIsModalOpen(true); // Open the modal.
   }
 
@@ -69,7 +70,7 @@ function App() {
     setForm({
       title: meeting.title,
       description: meeting.description,
-      date: meeting.date,
+      date: format(meeting.date, "yyyy-MM-dd"),
       time: meeting.time,
     }); // Populate the form with the meeting's data.
     setIsModalOpen(true); // Open the modal.
@@ -89,6 +90,7 @@ function App() {
       setMeetings([...meetings, newMeeting]);
     }
     setIsModalOpen(false); // Close the modal.
+    setSelectedMeeting(null); // Reset selected meeting.
   }
 
   // **Function to confirm deletion of a meeting**
@@ -105,6 +107,12 @@ function App() {
         <Button onClick={() => handleDateChange(subMonths(currentDate, 1))}>
           Previous
         </Button>
+        <Input
+          type="date"
+          value={format(currentDate, "yyyy-MM-dd")}
+          onChange={(e) => handleDateChange(new Date(e.target.value))}
+          aria-label="Date Picker"
+        />
         <Button onClick={() => handleDateChange(new Date())}>Today</Button>
         <Button onClick={() => handleDateChange(addMonths(currentDate, 1))}>
           Next
@@ -122,36 +130,40 @@ function App() {
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-3">
         {(view === "month" ? daysInMonth : daysInWeek).map((day) => (
-          <Card key={day.toISOString()} className="min-h-[120px]">
-            <CardHeader className="p-3">
-              {/* Highlight Today's Date */}
-              <CardTitle
-                className={`${isSameDay(day, new Date()) ? "text-blue-600" : ""
-                  }`}
-              >
-                {format(day, "d")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 text-sm">
-              {/* Render Meetings for Each Day */}
-              {meetings
-                .filter((meeting) => isSameDay(meeting.date, day))
-                .map((meeting) => (
-                  <div
-                    key={meeting.title}
-                    onClick={() => openModalForEdit(meeting)}
-                    className="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                  >
-                    {meeting.time} - {meeting.title}
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
+          <div key={day.toISOString()} className="relative">
+            <Card
+              onClick={() => openModalForAdd(day)}
+              className={`min-h-[120px] ${isSameDay(day, new Date()) ? "border-blue-500" : ""
+                }`}
+            >
+              <CardHeader className="p-3">
+                <CardTitle>{format(day, "d")}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 text-sm">
+                {/* Render Meetings for Each Day */}
+                {meetings
+                  .filter((meeting) => isSameDay(new Date(meeting.date), day))
+                  .map((meeting) => (
+                    <div
+                      key={meeting.title}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openModalForEdit(meeting);
+                      }}
+                      className="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                    >
+                      {meeting.time} - {meeting.title}
+                    </div>
+                  ))}
+              </CardContent>
+            </Card>
+            {view === "month" && <div className="absolute top-2 right-2 text-xs">{`W${getWeek(day)}`}</div>}
+          </div>
         ))}
       </div>
 
       {/* Add Meeting Button */}
-      <Button onClick={openModalForAdd} className="mt-6">
+      <Button onClick={() => openModalForAdd(new Date())} className="mt-6">
         Add Meeting
       </Button>
 
@@ -180,7 +192,7 @@ function App() {
             />
             <Input
               type="date"
-              value={format(form.date, "yyyy-MM-dd")}
+              value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
               required
             />
@@ -235,31 +247,31 @@ const initialMeetings = [
   {
     title: "Morning Standup",
     description: "Daily team sync",
-    date: new Date(),
+    date: "2024-12-01",
     time: "09:00",
   },
   {
     title: "Client Call",
     description: "Discuss project progress",
-    date: new Date(),
+    date: "2024-12-10",
     time: "14:30",
   },
   {
     title: "Lunch Break",
     description: "",
-    date: new Date(),
+    date: "2024-12-15",
     time: "12:00",
   },
   {
     title: "Code Review",
     description: "Review pull requests",
-    date: new Date(new Date().setDate(new Date().getDate() + 1)),
+    date: "2024-12-20",
     time: "16:00",
   },
   {
     title: "Gym Session",
     description: "Cardio and weights",
-    date: new Date(new Date().setDate(new Date().getDate() + 2)),
+    date: "2024-12-25",
     time: "18:00",
   },
 ];

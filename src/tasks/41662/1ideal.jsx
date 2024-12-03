@@ -84,7 +84,7 @@ export default function App() {
   };
 
   return (
-    <div className="container mx-auto p-4 bg-gradient-to-br from-purple-600 via-indigo-500 to-pink-500 min-h-screen text-white">
+    <div className="container mx-auto p-4 bg-gradient-to-br min-h-screen text-white">
       <h1 className="text-4xl font-extrabold mb-6 text-center">🏋️‍♂️ Fitness Tracker</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
@@ -150,7 +150,7 @@ export default function App() {
         </SelectContent>
       </Select>
 
-      <div className="overflow-x-auto bg-purple-800 rounded-lg shadow-lg p-4">
+      <div className="overflow-x-auto bg-purple-200 rounded-lg shadow-lg p-4 mt-5">
         <Table className="table-auto">
           <TableHeader>
             <TableRow className="text-white bg-purple-900">
@@ -171,7 +171,7 @@ export default function App() {
           </TableHeader>
           <TableBody>
             {paginatedWorkouts.map((workout, index) => (
-              <TableRow key={index} className="hover:bg-purple-700 text-white">
+              <TableRow key={index} className="hover:bg-purple-700 text-black">
                 <TableCell>{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
                 <TableCell>{workout.date}</TableCell>
                 <TableCell>{workout.type}</TableCell>

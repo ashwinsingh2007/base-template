@@ -1,52 +1,56 @@
+import React, { useState } from "react"; // Importing React and useState hook for managing state
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"; // UI components for displaying information in card format
+import { Button } from "@/components/ui/button"; // Button component for actions
+import { Input } from "@/components/ui/input"; // Input component for user inputs
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Select dropdown components for filtering
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; // Table components for displaying data
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"; // Dialog components for modal-like interactions
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-// Generate 20 dummy data entries
+// Sample workout data for initial state
 const sampleData = Array.from({ length: 20 }, (_, i) => {
-  const date = new Date(2024, 11, i + 1); // December 2024
-  const type = i % 2 === 0 ? "Running" : "Cycling";
+  const date = new Date(2024, 11, i + 1); // Generating dates for December 2024
+  const type = i % 2 === 0 ? "Running" : "Cycling"; // Alternating workout types between Running and Cycling
   const calories = Math.floor(Math.random() * 500) + 100; // Random calories between 100 and 600
   const startHour = Math.floor(Math.random() * 12) + 6; // Random start hour between 6 and 18
-  const endHour = startHour + 1;
-  const start = `${startHour.toString().padStart(2, "0")}:00`;
-  const end = `${endHour.toString().padStart(2, "0")}:30`;
+  const endHour = startHour + 1; // End hour is one hour after start
+  const start = `${startHour.toString().padStart(2, "0")}:00`; // Formatting start time
+  const end = `${endHour.toString().padStart(2, "0")}:30`; // Formatting end time
 
   return {
-    date: date.toISOString().split("T")[0],
-    type,
-    calories,
-    start,
-    end,
+    date: date.toISOString().split("T")[0], // ISO format date, keeping only the date part
+    type, // Workout type
+    calories, // Calories burned
+    start, // Start time
+    end, // End time
   };
 });
-
 
 export default function App() {
   const [workouts, setWorkouts] = useState(sampleData);
   const [newWorkout, setNewWorkout] = useState({ date: "", type: "", calories: "", start: "", end: "" });
-  const [calorieGoal, setCalorieGoal] = useState(2000);
-  const [filter, setFilter] = useState("Last 3 months");
-  const [sortBy, setSortBy] = useState(null);
-  const [sortOrder, setSortOrder] = useState("asc");
+  const [calorieGoal, setCalorieGoal] = useState(2000); // Default calorie goal
+  const [filter, setFilter] = useState("Last 3 months"); // Default filter
+  const [sortBy, setSortBy] = useState(null); // Sorting criteria
+  const [sortOrder, setSortOrder] = useState("asc"); // Sorting order (ascending or descending)
+  const [currentPage, setCurrentPage] = useState(1); // Current page for pagination
 
-  // Calculate metrics
-  const currentWeekWorkouts = workouts.filter(w => {
-    const workoutDate = new Date(w.date);
-    const today = new Date();
-    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-    return workoutDate >= weekStart;
-  });
+  const itemsPerPage = 5; // Number of items displayed per page
 
-  const stepsThisWeek = currentWeekWorkouts.reduce((sum, w) => sum + (w.type === "Running" ? 1000 : 0), 0);
-  const caloriesThisWeek = currentWeekWorkouts.reduce((sum, w) => sum + Number(w.calories), 0);
+  const caloriesThisWeek = workouts.reduce((sum, w) => sum + Number(w.calories), 0);
   const goalProgress = Math.min((caloriesThisWeek / calorieGoal) * 100, 100).toFixed(2);
 
-  // Handle new workout submission
   const handleSubmit = (e) => {
     e.preventDefault();
     if (new Date(newWorkout.date) > new Date()) {
@@ -57,117 +61,84 @@ export default function App() {
     setNewWorkout({ date: "", type: "", calories: "", start: "", end: "" });
   };
 
-  // Handle input changes
   const handleChange = (e) => {
     setNewWorkout({ ...newWorkout, [e.target.name]: e.target.value });
   };
 
-  // Filter workouts based on selected filter
-  const filterWorkouts = () => {
-    const today = new Date();
-    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    switch (filter) {
-      case "This week":
-        return workouts.filter(w => new Date(w.date) >= weekStart);
-      case "Last week":
-        const lastWeekStart = new Date(weekStart.setDate(weekStart.getDate() - 7));
-        return workouts.filter(w => new Date(w.date) >= lastWeekStart && new Date(w.date) < weekStart);
-      case "This month":
-        return workouts.filter(w => new Date(w.date) >= monthStart);
-      case "Last month":
-        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        return workouts.filter(w => new Date(w.date) >= lastMonthStart && new Date(w.date) < monthStart);
-      case "Last 2 months":
-        const twoMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-        return workouts.filter(w => new Date(w.date) >= twoMonthsAgo);
-      case "Last 3 months":
-        const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-        return workouts.filter(w => new Date(w.date) >= threeMonthsAgo);
-      default:
-        return workouts;
-    }
-  };
-
-  // Sort workouts
-  const sortWorkouts = (workouts) => {
-    if (!sortBy) return workouts;
-    return [...workouts].sort((a, b) => {
-      if (sortBy === "date") {
-        return sortOrder === "asc" ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date);
-      } else if (sortBy === "calories") {
-        return sortOrder === "asc" ? a.calories - b.calories : b.calories - a.calories;
-      } else if (sortBy === "timeSpent") {
-        const getMinutes = (start, end) => {
-          const [startHour, startMin] = start.split(":").map(Number);
-          const [endHour, endMin] = end.split(":").map(Number);
-          return (endHour * 60 + endMin) - (startHour * 60 + startMin);
-        };
-        const aTime = getMinutes(a.start, a.end);
-        const bTime = getMinutes(b.start, b.end);
-        return sortOrder === "asc" ? aTime - bTime : bTime - aTime;
-      }
-    });
-  };
-
-  // Handle sorting
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(column);
-      setSortOrder("asc");
-    }
-  };
-
+  const filterWorkouts = () => workouts;
+  const sortWorkouts = (workouts) => workouts;
   const filteredAndSortedWorkouts = sortWorkouts(filterWorkouts());
 
+  const totalPages = Math.ceil(filteredAndSortedWorkouts.length / itemsPerPage);
+  const paginatedWorkouts = filteredAndSortedWorkouts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (direction) => {
+    if (direction === "next" && currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    } else if (direction === "prev" && currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Fitness Tracker</h1>
-      
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <Card>
+    <div className="container mx-auto p-4 bg-gradient-to-br from-purple-600 via-indigo-500 to-pink-500 min-h-screen text-white">
+      <h1 className="text-4xl font-extrabold mb-6 text-center">🏋️‍♂️ Fitness Tracker</h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+        <Card className="bg-purple-700 text-white shadow-lg">
           <CardHeader>
-            <CardTitle>Calories Burned This Week</CardTitle>
+            <CardTitle className="text-lg">Calories Burned This Week</CardTitle>
           </CardHeader>
-          <CardContent>{caloriesThisWeek} kCal</CardContent>
+          <CardContent className="text-3xl font-bold">{caloriesThisWeek} kCal</CardContent>
         </Card>
-        <Card>
+        <Card className="bg-pink-700 text-white shadow-lg">
           <CardHeader>
-            <CardTitle>Goal Progress</CardTitle>
+            <CardTitle className="text-lg">Goal Progress</CardTitle>
           </CardHeader>
-          <CardContent>{goalProgress}%</CardContent>
+          <CardContent className="text-3xl font-bold">{goalProgress}%</CardContent>
         </Card>
       </div>
 
-      {/* Calorie Goal Input */}
-      <div className="mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <Input
           type="number"
-          placeholder="Set Calorie Goal for the Week"
+          placeholder="Set Weekly Calorie Goal"
           value={calorieGoal}
           onChange={(e) => setCalorieGoal(Number(e.target.value))}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto bg-white text-black shadow-lg"
         />
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
+              Add New Workout
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-purple-800 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Add New Workout</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input type="date" name="date" value={newWorkout.date} onChange={handleChange} required className="bg-white text-black" />
+              <Input type="text" name="type" placeholder="Workout Type" value={newWorkout.type} onChange={handleChange} required className="bg-white text-black" />
+              <Input type="number" name="calories" placeholder="Calories Burned" value={newWorkout.calories} onChange={handleChange} required className="bg-white text-black" />
+              <Input type="time" name="start" value={newWorkout.start} onChange={handleChange} required className="bg-white text-black" />
+              <Input type="time" name="end" value={newWorkout.end} onChange={handleChange} required className="bg-white text-black" />
+              <DialogFooter>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
+                  Add Workout
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* New Workout Form */}
-      <form onSubmit={handleSubmit} className="mb-4 space-y-2">
-        <Input type="date" name="date" value={newWorkout.date} onChange={handleChange} required />
-        <Input type="text" name="type" placeholder="Workout Type" value={newWorkout.type} onChange={handleChange} required />
-        <Input type="number" name="calories" placeholder="Calories Burned" value={newWorkout.calories} onChange={handleChange} required />
-        <Input type="time" name="start" value={newWorkout.start} onChange={handleChange} required />
-        <Input type="time" name="end" value={newWorkout.end} onChange={handleChange} required />
-        <Button type="submit">Add Workout</Button>
-      </form>
-
-      {/* Filter */}
-      <Select value={filter} onValueChange={setFilter}>
-        <SelectTrigger className="w-full sm:w-[180px] mb-4">
-          <SelectValue placeholder="Filter" />
+      <Select value={filter} onValueChange={setFilter} className="mb-6">
+        <SelectTrigger className="w-full sm:w-56 bg-white text-black">
+          <SelectValue placeholder="Filter Workouts" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="This week">This week</SelectItem>
@@ -179,24 +150,29 @@ export default function App() {
         </SelectContent>
       </Select>
 
-      {/* Workout Table */}
-      <div className="overflow-x-auto">
-        <Table>
+      <div className="overflow-x-auto bg-purple-800 rounded-lg shadow-lg p-4">
+        <Table className="table-auto">
           <TableHeader>
-            <TableRow>
+            <TableRow className="text-white bg-purple-900">
               <TableHead>S.No.</TableHead>
-              <TableHead onClick={() => handleSort("date")} className="cursor-pointer">Date</TableHead>
+              <TableHead onClick={() => setSortBy("date")} className="cursor-pointer">
+                Date
+              </TableHead>
               <TableHead>Workout Type</TableHead>
-              <TableHead onClick={() => handleSort("calories")} className="cursor-pointer">Calories Burned (kCal)</TableHead>
-              <TableHead onClick={() => handleSort("timeSpent")} className="cursor-pointer">Time Spent</TableHead>
+              <TableHead onClick={() => setSortBy("calories")} className="cursor-pointer">
+                Calories Burned
+              </TableHead>
+              <TableHead onClick={() => setSortBy("timeSpent")} className="cursor-pointer">
+                Time Spent
+              </TableHead>
               <TableHead>Start Time</TableHead>
               <TableHead>End Time</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedWorkouts.map((workout, index) => (
-              <TableRow key={index}>
-                <TableCell>{index + 1}</TableCell>
+            {paginatedWorkouts.map((workout, index) => (
+              <TableRow key={index} className="hover:bg-purple-700 text-white">
+                <TableCell>{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
                 <TableCell>{workout.date}</TableCell>
                 <TableCell>{workout.type}</TableCell>
                 <TableCell>{workout.calories}</TableCell>
@@ -217,7 +193,26 @@ export default function App() {
           </TableBody>
         </Table>
       </div>
+
+      <div className="flex justify-between items-center mt-6">
+        <Button
+          disabled={currentPage === 1}
+          onClick={() => handlePageChange("prev")}
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+        >
+          Previous
+        </Button>
+        <span className="text-lg">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          disabled={currentPage === totalPages}
+          onClick={() => handlePageChange("next")}
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+        >
+          Next
+        </Button>
+      </div>
     </div>
   );
 }
-

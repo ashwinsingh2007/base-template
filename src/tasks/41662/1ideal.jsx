@@ -84,17 +84,17 @@ export default function App() {
   };
 
   return (
-    <div className="container mx-auto p-4 bg-gradient-to-br min-h-screen text-white">
+    <div className="container mx-auto p-4 bg-gray-900 min-h-screen text-white">
       <h1 className="text-4xl font-extrabold mb-6 text-center">🏋️‍♂️ Fitness Tracker</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-        <Card className="bg-purple-700 text-white shadow-lg">
+        <Card className="bg-sky-400 text-white shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg">Calories Burned This Week</CardTitle>
           </CardHeader>
           <CardContent className="text-3xl font-bold">{caloriesThisWeek} kCal</CardContent>
         </Card>
-        <Card className="bg-pink-700 text-white shadow-lg">
+        <Card className="bg-sky-700 text-white shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg">Goal Progress</CardTitle>
           </CardHeader>
@@ -112,11 +112,11 @@ export default function App() {
         />
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
+            <Button className="bg-white hover:bg-gray-200 border text-black shadow-lg">
               Add New Workout
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-purple-800 text-white">
+          <DialogContent className="bg-sky-800 text-white">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold">Add New Workout</DialogTitle>
             </DialogHeader>
